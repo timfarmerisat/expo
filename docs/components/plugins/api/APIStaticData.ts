@@ -309,6 +309,7 @@ export const sdkVersionHardcodedTypeLinks: Record<string, Record<string, string 
     CameraPosition: '/versions/v54.0.0/sdk/maps/#cameraposition-2',
     VectorIconProps: '/versions/v54.0.0/sdk/router/#vectoriconprops',
   },
+  // TODO: reflect unversioned router changes in the hardcoded links when making changes to the latest
   'v55.0.0': {
     EventEmitter: '/versions/v55.0.0/sdk/expo/#eventemittertype',
     NativeModule: '/versions/v55.0.0/sdk/expo/#nativemoduletype',
@@ -332,6 +333,8 @@ export const sdkVersionHardcodedTypeLinks: Record<string, Record<string, string 
     TriggerProps: '/versions/v55.0.0/sdk/router-ui/#triggerprops',
     VectorIconProps: '/versions/v55.0.0/sdk/router/#vectoriconprops',
   },
+  // TODO: reflect unversioned router changes in the hardcoded links, when making changes to the latest
+  // TODO: update the docs pages to point to correct links, when making changes to the latest
   latest: {
     EventEmitter: '/versions/latest/sdk/expo/#eventemittertype',
     NativeModule: '/versions/latest/sdk/expo/#nativemoduletype',
@@ -362,20 +365,23 @@ export const sdkVersionHardcodedTypeLinks: Record<string, Record<string, string 
     SharedRef: '/versions/unversioned/sdk/expo/#sharedreftype',
     SharedRefType: '/versions/unversioned/sdk/expo/#sharedreftype',
     Href: '/versions/unversioned/sdk/router/#href-1',
+    HrefObject: '/versions/unversioned/sdk/router/#hrefobject',
     BufferOptions: '/versions/unversioned/sdk/video/#bufferoptions-1',
     CameraPosition: '/versions/unversioned/sdk/maps/#cameraposition-2',
     ScrubbingModeOptions: '/versions/unversioned/sdk/video/#scrubbingmodeoptions-1',
     SeekTolerance: '/versions/unversioned/sdk/video/#scrubbingmodeoptions-1',
-    BaseNativeTabsTriggerIconProps:
-      '/versions/unversioned/sdk/router-native-tabs/#basenativetabstriggericonprops',
     NativeTabsTriggerBadgeProps:
-      '/versions/unversioned/sdk/router-native-tabs/#nativetabstriggerbadgeprops',
+      '/versions/unversioned/sdk/router/native-tabs/#nativetabstriggerbadgeprops',
     NativeTabsTriggerIconProps:
-      '/versions/unversioned/sdk/router-native-tabs/#nativetabstriggericonprops',
+      '/versions/unversioned/sdk/router/native-tabs/#nativetabstriggericonprops',
     NativeTabsTriggerLabelProps:
-      '/versions/unversioned/sdk/router-native-tabs/#nativetabstriggerlabelprops',
-    TabsProps: '/versions/unversioned/sdk/router-ui/#tabsprops',
-    TriggerProps: '/versions/unversioned/sdk/router-ui/#triggerprops',
+      '/versions/unversioned/sdk/router/native-tabs/#nativetabstriggerlabelprops',
+    SingularOptions: '/versions/unversioned/sdk/router/stack/#singularoptions',
+    StackToolbarBadgeProps: '/versions/unversioned/sdk/router/stack/#stacktoolbarbadgeprops',
+    StackToolbarIconProps: '/versions/unversioned/sdk/router/stack/#stacktoolbariconprops',
+    StackToolbarLabelProps: '/versions/unversioned/sdk/router/stack/#stacktoolbarlabelprops',
+    TabsProps: '/versions/unversioned/sdk/router/ui/#tabsprops',
+    TriggerProps: '/versions/unversioned/sdk/router/ui/#triggerprops',
     VectorIconProps: '/versions/unversioned/sdk/router/#vectoriconprops',
   },
 };
