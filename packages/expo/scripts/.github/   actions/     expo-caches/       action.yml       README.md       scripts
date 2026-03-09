@@ -1,0 +1,6 @@
+.github/
+  actions/
+    expo-caches/
+      action.yml
+      README.md
+      scripts/
