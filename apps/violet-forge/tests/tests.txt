@@ -44,12 +44,13 @@ Steps:
 3. Refresh, confirm both items are visible, then delete the uploaded file and confirm deletion.
 Expected: The generated image has an openable signed URL, the uploaded file persists after refresh, and the confirmed deletion removes only that file.
 
-## Test 5 - Build a quote, resource inventory and responsive report
+## Test 5 - Preview, quote, inventory and responsive report
 Viewport: mobile (375x667)
-Covers: quote calculation endpoint, labor and cost validation, resource inventory endpoint, planning charts, report truth boundary, responsive navigation, JSON export
-Description: Verifies financial planning uses entered numbers, labels estimates honestly, and remains usable on mobile.
+Covers: read-only preview guardrail, quote calculation endpoint, labor and cost validation, resource inventory endpoint, planning charts, report truth boundary, responsive navigation, JSON export
+Description: Verifies the public preview blocks writes, then financial planning uses entered numbers, labels estimates honestly, and remains usable on mobile after sign-in.
 Steps:
-1. Create a quote for "Mobile Store Launch" with price 10000, 40 labor hours, labor rate 100, tools 500, and fees 500.
-2. Add a Personnel resource named "Deployment engineer" with quantity 1 and unit cost 4000, then open the report.
-3. Export the project history.
-Expected: The report shows estimated cost 5000, estimated profit 5000, gross margin 50.0%, includes the resource, labels results as planning estimates, and downloads a JSON export.
+1. From the signed-out screen open the read-only preview, attempt to create a task, confirm the sign-in requirement, then sign in.
+2. Create a quote for "Mobile Store Launch" with price 10000, 40 labor hours, labor rate 100, tools 500, and fees 500.
+3. Add a Personnel resource named "Deployment engineer" with quantity 1 and unit cost 4000, then open the report.
+4. Export the project history.
+Expected: Preview does not create a task; the signed-in report shows estimated cost 5000, estimated profit 5000, gross margin 50.0%, includes the resource, labels results as planning estimates, and downloads a JSON export.
