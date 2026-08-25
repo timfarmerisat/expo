@@ -16,8 +16,8 @@ const money = (value: number) => new Intl.NumberFormat('en-US', { style: 'curren
 const shortDate = (value: string) => new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 const errorText = (value: unknown) => value instanceof Error ? value.message : 'The request could not be completed.';
 
-function SignInGate({ onSignIn, busy, error }: { onSignIn: () => void; busy: boolean; error: string }) {
-  return <main className="signin-shell"><div className="signin-orbit orbit-one" /><div className="signin-orbit orbit-two" /><section className="signin-card"><div className="brand-lockup"><span className="brand-mark"><Layers3 size={26} /></span><div><strong>VIOLET FORGE</strong><small>Somethingdifferent LLC</small></div></div><h1>Build, research, deploy, and grow from one command center.</h1><p>Your private workspace combines AI architecture, sourced market research, assets, files, project history, labor quotes, store readiness, and connected-system launch paths.</p><div className="signin-proof"><span><ShieldCheck size={17} /> Private account workspace</span><span><Github size={17} /> GitHub registry connected</span><span><Cloud size={17} /> AppDeploy registry connected</span></div>{error && <div className="inline-error">{error}</div>}<button className="primary large" onClick={onSignIn} disabled={busy}>{busy ? <LoaderCircle className="spin" size={18} /> : <LockKeyhole size={18} />} Sign in to Violet Forge</button><small className="legal-note">Authentication is required so project, file, research, quote, and task records remain private to your account.</small></section></main>;
+function SignInGate({ onSignIn, onPreview, busy, error }: { onSignIn: () => void; onPreview: () => void; busy: boolean; error: string }) {
+  return <main className="signin-shell"><div className="signin-orbit orbit-one" /><div className="signin-orbit orbit-two" /><section className="signin-card"><div className="brand-lockup"><span className="brand-mark"><Layers3 size={26} /></span><div><strong>VIOLET FORGE</strong><small>Somethingdifferent LLC</small></div></div><h1>Build, research, deploy, and grow from one command center.</h1><p>Your private workspace combines AI architecture, sourced market research, assets, files, project history, labor quotes, store readiness, and connected-system launch paths.</p><div className="signin-proof"><span><ShieldCheck size={17} /> Private account workspace</span><span><Github size={17} /> GitHub registry connected</span><span><Cloud size={17} /> AppDeploy registry connected</span></div>{error && <div className="inline-error">{error}</div>}<button className="primary large" onClick={onSignIn} disabled={busy}>{busy ? <LoaderCircle className="spin" size={18} /> : <LockKeyhole size={18} />} Sign in to Violet Forge</button><button className="preview-button" onClick={onPreview}><MonitorSmartphone size={17} /> Explore read-only preview</button><small className="legal-note">Authentication is required so project, file, research, quote, and task records remain private to your account.</small></section></main>;
 }
 
 function ActionButton({ icon, label, onClick }: { icon: ReactNode; label: string; onClick: () => void }) {
@@ -40,9 +40,11 @@ export default function VioletForge() {
   const [answer, setAnswer] = useState('Describe a product, market, application, game, deployment, or business problem. Violet Forge will return a build plan with evidence boundaries, risks, acceptance criteria, and next actions.');
   const [commandBusy, setCommandBusy] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
   const pipelineRef = useRef<HTMLDivElement>(null);
 
   const refresh = async () => {
+    if (previewMode) return;
     setLoading(true);
     try { const response = await api.get('/api/bootstrap'); setData(response.data as BootstrapData); }
     catch (error) { setToast({ kind: 'error', text: errorText(error) }); }
@@ -57,17 +59,24 @@ export default function VioletForge() {
   useEffect(() => { if (!toast) return; const id = window.setTimeout(() => setToast(null), 4200); return () => window.clearTimeout(id); }, [toast]);
 
   const signIn = async () => {
-    setAuthBusy(true); setAuthError('');
+    setAuthBusy(true); setAuthError(''); setPreviewMode(false);
     try { const result = await auth.signIn(); setUser(result.user as AppUser); await refresh(); }
     catch (error) { const coded = error as { code?: string }; setAuthError(coded.code === 'popup_blocked' ? 'Allow popups for this site, then try again.' : coded.code === 'popup_closed' ? 'Sign-in was cancelled.' : 'Sign-in could not be completed.'); }
     finally { setAuthBusy(false); }
   };
 
-  const signOut = async () => { await auth.signOut(); setUser(null); setData(emptyData); };
+  const signOut = async () => { if (!previewMode) await auth.signOut(); setPreviewMode(false); setUser(null); setData(emptyData); };
   const showToast = (text: string, kind: 'success' | 'error' = 'success') => setToast({ text, kind });
+  const requireAccount = () => { if (!previewMode) return true; showToast('Sign in to save records or run live AI and storage actions.', 'error'); return false; };
+  const enterPreview = () => {
+    setPreviewMode(true);
+    setUser({ userId: 'preview', name: 'Read-only preview' });
+    setData({ ...emptyData, projects: [{ id: 'preview-project', name: 'Violet Forge Preview', type: 'AI application', objective: 'Explore the command center before sign-in.', stage: 'Planning', createdAt: new Date().toISOString() }], tasks: [{ id: 'preview-task', title: 'Sign in to create private project records', priority: 'Next step', done: false, createdAt: new Date().toISOString() }] });
+  };
 
   const sendCommand = async (nextCommand = command) => {
     if (!nextCommand.trim()) { showToast('Enter a build or research command first.', 'error'); return; }
+    if (!requireAccount()) return;
     setCommand(nextCommand); setCommandBusy(true);
     try { const response = await api.post('/api/command', { command: nextCommand, project: data.projects[0]?.name || 'Unassigned workspace' }); setAnswer(response.data.response); }
     catch (error) { showToast(errorText(error), 'error'); }
@@ -75,45 +84,53 @@ export default function VioletForge() {
   };
 
   const createProject = async (form: FormData) => {
+    if (!requireAccount()) return;
     const response = await api.post('/api/projects', { name: form.get('name'), type: form.get('type'), objective: form.get('objective') });
     setData((current) => ({ ...current, projects: [response.data as Project, ...current.projects] })); setModal(null); showToast('Project created and added to history.');
   };
 
   const createTask = async (form: FormData) => {
+    if (!requireAccount()) return;
     const response = await api.post('/api/tasks', { title: form.get('title'), priority: form.get('priority') });
     setData((current) => ({ ...current, tasks: [response.data as Task, ...current.tasks] })); setModal(null); showToast('Task created.');
   };
 
   const toggleTask = async (task: Task) => {
+    if (!requireAccount()) return;
     const response = await api.put(`/api/tasks/${task.id}`, { done: !task.done });
     setData((current) => ({ ...current, tasks: current.tasks.map((item) => item.id === task.id ? response.data as Task : item) }));
   };
 
   const runResearch = async (form: FormData) => {
+    if (!requireAccount()) return;
     setLoading(true);
     try { const response = await api.post('/api/research', { url: form.get('url'), question: form.get('question') }); setData((current) => ({ ...current, research: [response.data as ResearchRecord, ...current.research] })); setModal(null); showToast('Source analyzed and saved with its URL.'); }
     finally { setLoading(false); }
   };
 
   const generateAsset = async (form: FormData) => {
+    if (!requireAccount()) return;
     setLoading(true);
     try { const response = await api.post('/api/assets/generate', { prompt: form.get('prompt') }); setData((current) => ({ ...current, assets: [response.data as AssetRecord, ...current.assets] })); setModal(null); showToast('Image asset generated and saved.'); }
     finally { setLoading(false); }
   };
 
   const createQuote = async (form: FormData) => {
+    if (!requireAccount()) return;
     const payload = Object.fromEntries(form.entries());
     const response = await api.post('/api/quotes', payload);
     setData((current) => ({ ...current, quotes: [response.data as QuoteRecord, ...current.quotes] })); setModal(null); showToast('Quote and profitability estimate saved.');
   };
 
   const addResource = async (form: FormData) => {
+    if (!requireAccount()) return;
     const payload = Object.fromEntries(form.entries());
     const response = await api.post('/api/resources', payload);
     setData((current) => ({ ...current, resources: [response.data as ResourceRecord, ...current.resources] })); setModal(null); showToast('Resource added to inventory.');
   };
 
   const uploadFile = async (file: File) => {
+    if (!requireAccount()) return;
     if (file.size > 2_000_000) { showToast('Choose a file under 2 MB.', 'error'); return; }
     const base64 = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(',')[1] || ''); reader.onerror = () => reject(reader.error); reader.readAsDataURL(file); });
     const response = await api.post('/api/files', { name: file.name, content: base64, contentType: file.type || 'application/octet-stream' });
@@ -121,6 +138,7 @@ export default function VioletForge() {
   };
 
   const deleteFile = async (file: VaultFile) => {
+    if (!requireAccount()) return;
     if (!window.confirm(`Delete ${file.name}?`)) return;
     await api.delete('/api/files', { path: file.path }); setData((current) => ({ ...current, files: current.files.filter((item) => item.path !== file.path) })); showToast('File removed.');
   };
@@ -139,12 +157,13 @@ export default function VioletForge() {
     const link = document.createElement('a'); link.href = url; link.download = 'violet-forge-project-export.json'; link.click(); URL.revokeObjectURL(url); showToast('Project history exported.');
   };
 
-  if (!user) return <SignInGate onSignIn={signIn} busy={authBusy} error={authError} />;
+  if (!user) return <SignInGate onSignIn={signIn} onPreview={enterPreview} busy={authBusy} error={authError} />;
 
   return <div className="app-shell">
     {toast && <div className={`toast toast-${toast.kind}`}>{toast.kind === 'success' ? <Check size={17} /> : <X size={17} />}{toast.text}</div>}
     <header className="topbar"><div className="brand-lockup"><span className="brand-mark"><Layers3 size={24} /></span><div><strong>VIOLET FORGE</strong><small>Somethingdifferent LLC</small></div></div><nav className={mobileNav ? 'top-actions open' : 'top-actions'}><ActionButton icon={<Plus size={16} />} label="New Build" onClick={() => setModal('project')} /><ActionButton icon={<Search size={16} />} label="Research Market" onClick={() => setModal('research')} /><ActionButton icon={<Sparkles size={16} />} label="Generate Assets" onClick={() => setModal('asset')} /><ActionButton icon={<Rocket size={16} />} label="Deploy Release" onClick={() => pipelineRef.current?.scrollIntoView({ behavior: 'smooth' })} /><ActionButton icon={<Link2 size={16} />} label="Link System" onClick={() => setModal('systems')} /><ActionButton icon={<ClipboardCheck size={16} />} label="Create Task" onClick={() => setModal('task')} /><ActionButton icon={<Download size={16} />} label="Export Project" onClick={exportProject} /></nav><button className="mobile-menu icon-button" aria-label="Toggle navigation" onClick={() => setMobileNav((value) => !value)}><Menu size={20} /></button><button className="profile-button" onClick={signOut} title="Sign out">{user.picture ? <img src={user.picture} alt="" /> : <UserRoundCog size={20} />}<span>{user.name || user.email || 'Workspace owner'}</span></button></header>
 
+    {previewMode && <div className="preview-banner"><MonitorSmartphone size={15} /><span>Read-only preview — sign in to run AI, save projects, upload files, generate assets, or change records.</span><button onClick={signIn}>Sign in</button></div>}
     <main className="workspace">
       <Panel title="Build Lab" className="build-lab" action={<button className="mini-link" onClick={refresh}>{loading ? <LoaderCircle className="spin" size={14} /> : <RefreshCw size={14} />} Refresh</button>}>
         <p className="section-label">Project types</p><div className="type-list">{projectTypes.map((item, index) => <button key={item} className={index === 0 ? 'selected' : ''} onClick={() => { setCommand(`Build a production-ready ${item.toLowerCase()} with research, assets, tests, and deployment gates.`); }}><AppWindow size={14} />{item}</button>)}</div>
@@ -179,7 +198,7 @@ export default function VioletForge() {
       </div>
     </main>
 
-    <footer className="statusbar"><span><LockKeyhole size={14} /> Private account data</span><span><Database size={14} /> Database ready</span><span><RadioTower size={14} /> Refresh-based synchronization</span><span><Activity size={14} /> Health endpoint active</span><button onClick={refresh}><RefreshCw size={14} /> Refresh workspace</button></footer>
+    <footer className="statusbar"><span><LockKeyhole size={14} /> {previewMode ? 'Read-only sample data' : 'Private account data'}</span><span><Database size={14} /> Database ready</span><span><RadioTower size={14} /> Refresh-based synchronization</span><span><Activity size={14} /> Health endpoint active</span><button onClick={previewMode ? signIn : refresh}><RefreshCw size={14} /> {previewMode ? 'Sign in' : 'Refresh workspace'}</button></footer>
 
     {modal === 'project' && <Modal title="Create a new build" onClose={() => setModal(null)}><ActionForm submitLabel="Create project" onSubmit={createProject}><Field label="Project name" name="name" required /><SelectField label="Product type" name="type" values={projectTypes} /><Field label="Objective and customer outcome" name="objective" multiline /></ActionForm></Modal>}
     {modal === 'task' && <Modal title="Create a task" onClose={() => setModal(null)}><ActionForm submitLabel="Create task" onSubmit={createTask}><Field label="Task" name="title" required /><SelectField label="Priority" name="priority" values={['High', 'Medium', 'Low']} /></ActionForm></Modal>}
