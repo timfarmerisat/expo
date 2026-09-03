@@ -1,0 +1,25 @@
+{
+  "system": "LEGEND SYSTEM AI",
+  "architecture": "1011 Whole Building",
+  "appdeploy": {
+    "app_id": "legend-system-ai-1011-sovereign-command-center-nu9bt7",
+    "url": "https://legend-system-ai-1011-sovereign-command-center-nu9bt7.v2.appdeploy.ai/"
+  },
+  "google_drive_manifest": {
+    "title": "LEGEND SYSTEM AI — 1011 Whole Building Runtime Manifest",
+    "file_id": "1LtztfRMbptmyCMw0VH93TMEWCVm1HC2hpn1VTJcuxn8",
+    "url": "https://docs.google.com/document/d/1LtztfRMbptmyCMw0VH93TMEWCVm1HC2hpn1VTJcuxn8/edit?usp=drivesdk"
+  },
+  "registered_drive_sources": [
+    {"title":"Violet AI Sovereign Omni (v24.ROOT)","file_id":"1ze7PaLhvKXpW4mNANKcgvynsSn-ZN7qQp9ObCzs-K74"},
+    {"title":"run_violet_master_hub.py","file_id":"11oX4A4wOiMu86LNLpt0SU3f82UOa00z35Kh9wdo_wbk"},
+    {"title":"run_violet_system.py","file_id":"1JAegcqh23UpWIu01btirLQ8k1EW92sfLgbK0EZ1RELA"},
+    {"title":"violet-ai-platform.html","file_id":"1KS2VZ7Nude1vLPXanj1jzpAOQ5Na_wrT"},
+    {"title":"Python AI Chat with Voice","file_id":"1uYGcZjyqcsloTwNxx5hIbw9FCoOedYjRUqWttRapj9o"},
+    {"title":"build_violet_apex_os.py","file_id":"1TAFfZxazpGaAMmDWnd6AxxVOSuWL_qmB9dvkPnHlkAY"},
+    {"title":"Legends Core — Developer Sprint Task Board.xlsx","file_id":"1bBGGIqx3SbqJEQknABwwk8UuizrZR9CT"},
+    {"title":"violet_sovereign_genesis.py","file_id":"1cdZjFGHNAwl3zXrk0u51qfcZ2JMoKGJEWjPpSbEfCT4"}
+  ],
+  "evidence_policy": "Connected-source facts must be traceable to Drive, GitHub, or AppDeploy runtime evidence. The AI interface must distinguish registered sources from executed or synchronized operations.",
+  "flow": ["Drive knowledge","GitHub source","AppDeploy runtime","live status/evidence dashboard","AI command interface"]
+}
