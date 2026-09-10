@@ -1,8 +1,7 @@
-import { useEvent } from 'expo';
-import { PermissionResponse, useReleasingSharedObject } from 'expo-modules-core';
+import { useEvent, useReleasingSharedObject, type PermissionResponse } from 'expo';
 import { useEffect, useMemo } from 'react';
 
-import {
+import type {
   AudioMode,
   AudioPlayerOptions,
   AudioPlaylistOptions,
@@ -19,7 +18,7 @@ import {
   PLAYLIST_STATUS_UPDATE,
   RECORDING_STATUS_UPDATE,
 } from './AudioEventKeys';
-import { AudioPlayer, AudioSample } from './AudioModule.types';
+import type { AudioPlayer, AudioSample } from './AudioModule.types';
 import * as AudioModule from './AudioModule.web';
 import { createRecordingOptions } from './utils/options';
 import { resolveSource, resolveSources } from './utils/resolveSource';
@@ -54,13 +53,14 @@ export function useAudioPlayer(
   options: AudioPlayerOptions = {}
 ): AudioModule.AudioPlayerWeb {
   const { downloadFirst = false } = options;
+  const serializedSource = JSON.stringify(source);
 
   // If downloadFirst is true, we don't need to resolve the source, because it will be resolved in the useEffect below.
   // If downloadFirst is false, we resolve the source here.
   // we call .replace() in the useEffect below to replace the source with the downloaded one.
   const initialSource = useMemo(() => {
     return downloadFirst ? null : resolveSource(source);
-  }, [JSON.stringify(source), downloadFirst]);
+  }, [serializedSource, downloadFirst]);
 
   const player = useReleasingSharedObject(
     () => new AudioModule.AudioPlayerWeb(initialSource, options),
@@ -87,7 +87,7 @@ export function useAudioPlayer(
     return () => {
       isCancelled = true;
     };
-  }, [player, JSON.stringify(source), downloadFirst]);
+  }, [player, serializedSource, downloadFirst]);
 
   return player;
 }
@@ -116,9 +116,10 @@ export function useAudioRecorder(
   statusListener?: (status: RecordingStatus) => void
 ): AudioModule.AudioRecorderWeb {
   const platformOptions = createRecordingOptions(options);
+  const serializedPlatformOptions = JSON.stringify(platformOptions);
   const recorder = useMemo(() => {
     return new AudioModule.AudioRecorderWeb(platformOptions);
-  }, [JSON.stringify(platformOptions)]);
+  }, [serializedPlatformOptions]);
 
   useEffect(() => {
     const subscription = recorder.addListener(RECORDING_STATUS_UPDATE, (status) => {
@@ -153,12 +154,14 @@ export async function getRecordingPermissionsAsync(): Promise<PermissionResponse
 
 export function useAudioPlaylist(options: AudioPlaylistOptions = {}): AudioModule.AudioPlaylistWeb {
   const { sources = [], updateInterval = 500, loop = 'none', crossOrigin } = options;
+  const serializedSources = JSON.stringify(sources);
 
-  const resolvedSources = useMemo(() => resolveSources(sources), [JSON.stringify(sources)]);
+  const resolvedSources = useMemo(() => resolveSources(sources), [serializedSources]);
+  const serializedResolvedSources = JSON.stringify(resolvedSources);
 
   const playlist = useMemo(
     () => new AudioModule.AudioPlaylistWeb(resolvedSources, updateInterval, loop, crossOrigin),
-    [JSON.stringify(resolvedSources), updateInterval, loop, crossOrigin]
+    [serializedResolvedSources, updateInterval, loop, crossOrigin]
   );
 
   useEffect(() => {
@@ -202,5 +205,7 @@ export function clearAllPreloadedSources(): void {
 export function getPreloadedSources(): string[] {
   return AudioModule.getPreloadedSources();
 }
+
+export { useAudioStream } from './AudioStream.web';
 
 export { AudioModule };

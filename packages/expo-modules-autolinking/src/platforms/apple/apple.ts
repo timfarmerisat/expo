@@ -2,7 +2,11 @@ import spawnAsync from '@expo/spawn-async';
 import fs from 'fs';
 import path from 'path';
 
-import { getIosInlineModulesClassNames } from '../../inlineModules/iosInlineModules';
+import type { AutolinkingOptions } from '../../commands/autolinkingOptions';
+import {
+  getIosInlineModulesClassNames,
+  isTargetInInlineModulesTargets,
+} from '../../inlineModules/iosInlineModules';
 import type {
   AppleCodeSignEntitlements,
   ExtraDependencies,
@@ -15,6 +19,16 @@ import { listFilesInDirectories, fileExistsAsync } from '../../utils';
 
 const APPLE_PROPERTIES_FILE = 'Podfile.properties.json';
 const APPLE_EXTRA_BUILD_DEPS_KEY = 'apple.extraPods';
+
+interface AppleConfigurationOutput {
+  buildFromSource: string[];
+}
+
+export function getConfiguration(
+  options: AutolinkingOptions
+): AppleConfigurationOutput | undefined {
+  return options.buildFromSource ? { buildFromSource: options.buildFromSource } : undefined;
+}
 
 const indent = '  ';
 
@@ -93,6 +107,9 @@ export async function resolveExtraBuildDependenciesAsync(
 
 interface GenerateModulesProviderParams {
   watchedDirectories: string[];
+  inlineModulesTargets: { mainTarget?: string; targets: string[] };
+  targetPath: string;
+  targetName?: string;
   appRoot: string;
 }
 /**
@@ -113,13 +130,17 @@ export async function generateModulesProviderAsync(
     params
   );
   const parentPath = path.dirname(targetPath);
+
+  // Avoid writing the file if the content hasn't changed to prevent unnecessary recompilation.
+  try {
+    const existingContent = await fs.promises.readFile(targetPath, 'utf8');
+    if (existingContent === generatedFileContent) {
+      return;
+    }
+  } catch {}
+
   await fs.promises.mkdir(parentPath, { recursive: true });
   await fs.promises.writeFile(targetPath, generatedFileContent, 'utf8');
-}
-
-interface GeneratePackageListFileContentParams {
-  watchedDirectories: string[];
-  appRoot: string;
 }
 
 /**
@@ -153,9 +174,9 @@ async function generatePackageListFileContentAsync(
     .concat(...modulesToImport.map((module) => module.modules))
     .filter(Boolean);
 
-  modulesClassNames = modulesClassNames.concat(
-    await getIosInlineModulesClassNames(params.watchedDirectories, params.appRoot)
-  );
+  if (isTargetInInlineModulesTargets(params)) {
+    modulesClassNames = modulesClassNames.concat(await getIosInlineModulesClassNames(params));
+  }
 
   const debugOnlyModulesClassNames = ([] as ModuleIosConfig[])
     .concat(...debugOnlyModules.map((module) => module.modules))

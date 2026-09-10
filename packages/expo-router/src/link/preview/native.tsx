@@ -1,14 +1,14 @@
 'use client';
 
-import { requireNativeView } from 'expo';
-import type { ImageRef } from 'expo-image';
+import { requireNativeView, SharedRef } from 'expo';
 import { Fragment, type PropsWithChildren } from 'react';
 import { Platform, StyleSheet, type ViewProps, type ColorValue } from 'react-native';
 
 import type { BasicTextStyle } from '../../utils/font';
 
+// TODO(@kitten): Replace with `globalThis`, add typings in `expo`
 const areNativeViewsAvailable =
-  process.env.EXPO_OS === 'ios' && !Platform.isTV && global.RN$Bridgeless === true;
+  process.env.EXPO_OS === 'ios' && !Platform.isTV && (global as any).RN$Bridgeless === true;
 
 // #region Action View
 export interface NativeLinkPreviewActionProps {
@@ -17,7 +17,7 @@ export interface NativeLinkPreviewActionProps {
   label?: string;
   icon?: string;
   xcassetName?: string;
-  image?: ImageRef | null;
+  image?: InstanceType<SharedRef<'image'>> | null;
   imageRenderingMode?: 'template' | 'original';
   children?: React.ReactNode;
   disabled?: boolean;

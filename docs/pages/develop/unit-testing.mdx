@@ -33,19 +33,43 @@ Install `jest-expo` and other required dev dependencies in your project. Run the
 
 <Tab label="macOS/Linux">
 
-<Terminal cmd={['$ npx expo install jest-expo jest @types/jest --dev']} />
+<Terminal
+  cmd={{
+    npm: ['$ npx expo install jest-expo jest @types/jest --dev'],
+    yarn: ['$ yarn expo install jest-expo jest @types/jest --dev'],
+    pnpm: ['$ pnpm expo install jest-expo jest @types/jest --dev'],
+    bun: ['$ bun expo install jest-expo jest @types/jest --dev'],
+  }}
+/>
 
 </Tab>
 
 <Tab label="Windows">
 
-<Terminal cmd={['$ npx expo install jest-expo jest @types/jest "--" --dev']} />
+<Terminal
+  cmd={{
+    npm: ['$ npx expo install jest-expo jest @types/jest "--" --dev'],
+    yarn: ['$ yarn expo install jest-expo jest @types/jest "--" --dev'],
+    pnpm: ['$ pnpm expo install jest-expo jest @types/jest "--" --dev'],
+    bun: ['$ bun expo install jest-expo jest @types/jest "--" --dev'],
+  }}
+/>
 
 </Tab>
 
 </Tabs>
 
 > **Note:** If your project is not using TypeScript, you can skip installing `@types/jest`.
+
+If your project uses TypeScript, add `"jest"` to the `types` array in your **tsconfig.json** to enable Jest's type definitions:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "types": ["jest"]
+  }
+}
+```
 
 </Step>
 
@@ -109,7 +133,22 @@ You can transpile node modules your project uses by configuring [`transformIgnor
   "preset": "jest-expo",
   /* @info */
   "transformIgnorePatterns": [
-    "node_modules/(?!(?:.pnpm/)?((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg))"
+    "node_modules/(?!(.pnpm|(jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg))"
+  ]
+  /* @end */
+}
+```
+
+</Tab>
+
+<Tab label="Bun">
+
+```json package.json
+"jest": {
+  "preset": "jest-expo",
+  /* @info */
+  "transformIgnorePatterns": [
+    "node_modules/(?!(.bun|(jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg))"
   ]
   /* @end */
 }
@@ -133,19 +172,33 @@ To install it, run the following command:
 
 <Tab label="macOS/Linux">
 
-<Terminal cmd={['$ npx expo install @testing-library/react-native --dev']} />
+<Terminal
+  cmd={{
+    npm: ['$ npx expo install @testing-library/react-native --dev'],
+    yarn: ['$ yarn expo install @testing-library/react-native --dev'],
+    pnpm: ['$ pnpm expo install @testing-library/react-native --dev'],
+    bun: ['$ bun expo install @testing-library/react-native --dev'],
+  }}
+/>
 
 </Tab>
 
 <Tab label="Windows">
 
-<Terminal cmd={['$ npx expo install @testing-library/react-native "--" --dev']} />
+<Terminal
+  cmd={{
+    npm: ['$ npx expo install @testing-library/react-native "--" --dev'],
+    yarn: ['$ yarn expo install @testing-library/react-native "--" --dev'],
+    pnpm: ['$ pnpm expo install @testing-library/react-native "--" --dev'],
+    bun: ['$ bun expo install @testing-library/react-native "--" --dev'],
+  }}
+/>
 
 </Tab>
 
 </Tabs>
 
-> **warning** **Deprecated:** `@testing-library/react-native` replaces the deprecated `react-test-renderer` because `react-test-renderer` does not support React 19 and above. Remove the deprecated library from your project if you are currently using it. See [React's documentation for more information](https://react.dev/warnings/react-test-renderer).
+> **warning** **[Deprecated](/more/release-statuses/#deprecated):** `@testing-library/react-native` replaces the deprecated `react-test-renderer` because `react-test-renderer` does not support React 19 and above. Remove the deprecated library from your project if you are currently using it. See [React's documentation for more information](https://react.dev/warnings/react-test-renderer).
 
 ## Unit test
 
@@ -163,7 +216,7 @@ import { StyleSheet, Text, View } from 'react-native';
 export const CustomText = ({ children }: PropsWithChildren) => <Text>{children}</Text>;
 /* @end */
 
-/* @info This component currently renders a welcome message on the app screen using the <CODE>CustomText</CODE> component. */
+/* @info This component currently renders a welcome message on the app screen using the `CustomText` component. */
 export default function HomeScreen() {
   return (
     <View style={styles.container}>
@@ -197,8 +250,8 @@ import { render } from '@testing-library/react-native';
 import HomeScreen, { CustomText } from '@/app/index';
 
 describe('<HomeScreen />', () => {
-  test('Text renders correctly on HomeScreen', () => {
-    const { getByText } = render(<HomeScreen />);
+  test('Text renders correctly on HomeScreen', async () => {
+    const { getByText } = await render(<HomeScreen />);
 
     getByText('Welcome!');
   });
@@ -213,7 +266,14 @@ In the above example, the `getByText` query helps your tests find relevant eleme
 
 Run the following command in a terminal window to execute the test:
 
-<Terminal cmd={['$ npm run test']} />
+<Terminal
+  cmd={{
+    npm: ['$ npm run test'],
+    yarn: ['$ yarn run test'],
+    pnpm: ['$ pnpm run test'],
+    bun: ['$ bun run test'],
+  }}
+/>
 
 You will see one test being passed.
 
@@ -258,8 +318,8 @@ To add a snapshot test for `<HomeScreen />`, add the following code snippet in t
 describe('<HomeScreen />', () => {
   /* @hide ... */ /* @end */
 
-  test('CustomText renders correctly', () => {
-    const tree = render(<CustomText>Some text</CustomText>).toJSON();
+  test('CustomText renders correctly', async () => {
+    const tree = (await render(<CustomText>Some text</CustomText>)).toJSON();
 
     expect(tree).toMatchSnapshot();
   });

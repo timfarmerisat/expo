@@ -1,7 +1,7 @@
 import { Inter_900Black } from '@expo-google-fonts/inter';
 import Constants from 'expo-constants';
 import { ExpoUpdatesManifest } from 'expo-manifests';
-import { requireNativeModule } from 'expo-modules-core';
+import { requireNativeModule } from 'expo';
 import { StatusBar } from 'expo-status-bar';
 import * as Updates from 'expo-updates';
 import { UpdatesLogEntry } from 'expo-updates';
@@ -16,6 +16,7 @@ type NativeInterfaceState = {
   runtimeVersion: string;
   embeddedUpdateId: string;
   launchedUpdateId: string;
+  downloadTimeMs: number | null;
   type?: string | null;
   manifest?: ExpoUpdatesManifest | null;
 };
@@ -39,6 +40,7 @@ function useNativeInterfaceState() {
     runtimeVersion,
     embeddedUpdateId,
     launchedUpdateId,
+    downloadTimeMs: null,
   });
   const listener = React.useCallback((event: any) => {
     setState({
@@ -47,6 +49,7 @@ function useNativeInterfaceState() {
       runtimeVersion,
       embeddedUpdateId,
       launchedUpdateId: ExpoUpdatesE2ETestModule.getLaunchedUpdateId(),
+      downloadTimeMs: ExpoUpdatesE2ETestModule.getDownloadTimeMs(),
     });
   }, []);
   React.useEffect(() => {
@@ -141,7 +144,7 @@ export default function App() {
     }
   }, [isUpdateAvailable]);
 
-  // Record if checking an downloading happen in parallel (they shouldn't)
+  // Record if checking and downloading happen in parallel (they shouldn't)
   React.useEffect(() => {
     if (isChecking && isDownloading) {
       setDidCheckAndDownloadHappenInParallel(true);
@@ -312,6 +315,10 @@ export default function App() {
       <TestValue
         testID="nativeInterfaceState.availableUpdateId"
         value={`${nativeInterfaceState.manifest?.id}`}
+      />
+      <TestValue
+        testID="nativeInterfaceState.downloadTimeMs"
+        value={`${nativeInterfaceState.downloadTimeMs}`}
       />
 
       <Text>Log messages</Text>

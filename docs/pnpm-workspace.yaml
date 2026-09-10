@@ -1,0 +1,34 @@
+# docs/ is intentionally a standalone pnpm project, not a member of the root
+# expo monorepo workspace. This file exists to stop pnpm from traversing upward
+# to the root pnpm-workspace.yaml. Without it, `pnpm install` from docs/ runs
+# as a root-workspace install and never touches docs/ as standalone.
+packages: []
+
+# Flat `node_modules`, kept from the Yarn 4 layout when docs moved to pnpm.
+nodeLinker: hoisted
+
+# Reject package versions younger than 24 hours to reduce exposure to
+# supply-chain attacks via freshly published malicious versions. Matches the
+# root expo monorepo's gate.
+minimumReleaseAge: 1440
+
+minimumReleaseAgeExclude:
+  - '@expo/*'
+
+# pnpm no longer reads the `pnpm` field in package.json, so these live here.
+overrides:
+  baseline-browser-mapping: 2.9.15
+
+patchedDependencies:
+  next@16.2.11: patches/next@16.2.11.patch
+
+# Native-binary deps whose install scripts we need at build or runtime, and the
+# ones we deliberately skip. pnpm 11 replaced `onlyBuiltDependencies` and
+# `ignoredBuiltDependencies` with this map, and pnpm 12 ignores both.
+allowBuilds:
+  '@fingerprintjs/fingerprintjs-pro-react': false
+  '@sentry/cli': true
+  esbuild: false
+  sharp: true
+  unrs-resolver: false
+  workerd: true

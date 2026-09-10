@@ -1,12 +1,15 @@
-import {
+import type {
+  AudioMetadata,
   AudioPlaylistLoopMode,
   AudioPlaylistStatus,
   AudioSource,
   AudioSourceInfo,
 } from './Audio.types';
+import type { AudioLockScreenOptions } from './AudioConstants';
 import { PLAYLIST_STATUS_UPDATE, TRACK_CHANGED } from './AudioEventKeys';
-import { AudioPlaylist, AudioPlaylistEvents } from './AudioModule.types';
+import type { AudioPlaylist, AudioPlaylistEvents } from './AudioModule.types';
 import { getSourceUri, nextId } from './AudioUtils.web';
+import { mediaSessionController } from './MediaSessionController.web';
 import { resolveSource } from './utils/resolveSource';
 
 function getSourceInfo(source: AudioSource): AudioSourceInfo {
@@ -41,7 +44,10 @@ export class AudioPlaylistWeb
     }
 
     if (this._sources.length > 0) {
-      this._currentMedia = this._createMediaElement(this._sources[0]);
+      const source = this._sources[0];
+      if (source) {
+        this._currentMedia = this._createMediaElement(source);
+      }
       this._preloadNext();
     }
   }
@@ -268,9 +274,12 @@ export class AudioPlaylistWeb
         this._currentIndex = this._sources.length - 1;
       }
       this._knownDuration = 0;
-      this._currentMedia = this._createMediaElement(this._sources[this._currentIndex]);
-      if (wasPlaying) {
-        this._currentMedia.play();
+      const source = this._sources[this._currentIndex];
+      if (source) {
+        this._currentMedia = this._createMediaElement(source);
+        if (wasPlaying) {
+          this._currentMedia.play();
+        }
       }
       this._preloadNext();
     } else if (index < this._currentIndex) {
@@ -298,7 +307,28 @@ export class AudioPlaylistWeb
   }
 
   destroy(): void {
+    mediaSessionController.clear(this);
     this.clear();
+  }
+
+  setActiveForLockScreen(
+    active: boolean,
+    metadata?: AudioMetadata,
+    options?: AudioLockScreenOptions
+  ): void {
+    if (active) {
+      mediaSessionController.setActivePlayer(this, metadata, options);
+    } else {
+      mediaSessionController.clear(this);
+    }
+  }
+
+  updateLockScreenMetadata(metadata: AudioMetadata): void {
+    mediaSessionController.updateMetadata(this, metadata);
+  }
+
+  clearLockScreenControls(): void {
+    mediaSessionController.clear(this);
   }
 
   private _transitionToTrack(newIndex: number, previousIndex: number): void {
@@ -322,10 +352,13 @@ export class AudioPlaylistWeb
     } else {
       this._cleanupMedia(this._nextMedia);
       this._nextMedia = null;
-      this._currentMedia = this._createMediaElement(this._sources[newIndex]);
+      const source = this._sources[newIndex];
+      if (source) {
+        this._currentMedia = this._createMediaElement(source);
+      }
     }
 
-    if (wasPlaying) {
+    if (this._currentMedia && wasPlaying) {
       this._currentMedia.play();
       this._isPlaying = true;
     }
@@ -356,16 +389,21 @@ export class AudioPlaylistWeb
       }
     }
 
-    const uri = getSourceUri(this._sources[nextIndex]);
-    if (uri) {
-      this._nextMedia = new Audio(uri);
-      if (this._crossOrigin !== undefined) {
-        this._nextMedia.crossOrigin = this._crossOrigin;
+    const source = this._sources[nextIndex];
+
+    if (source) {
+      const uri = getSourceUri(source);
+
+      if (uri) {
+        this._nextMedia = new Audio(uri);
+        if (this._crossOrigin !== undefined) {
+          this._nextMedia.crossOrigin = this._crossOrigin;
+        }
+        this._nextMedia.preload = 'auto';
+        this._nextMedia.volume = this._volume;
+        this._nextMedia.muted = this._muted;
+        this._nextMedia.playbackRate = this._playbackRate;
       }
-      this._nextMedia.preload = 'auto';
-      this._nextMedia.volume = this._volume;
-      this._nextMedia.muted = this._muted;
-      this._nextMedia.playbackRate = this._playbackRate;
     }
   }
 
@@ -495,6 +533,7 @@ export class AudioPlaylistWeb
         this._transitionToTrack(0, this._currentIndex);
       } else {
         this._isPlaying = false;
+        this._updateMediaSession();
         this.emit(PLAYLIST_STATUS_UPDATE, {
           ...this._getStatus(),
           didJustFinish: true,
@@ -525,5 +564,11 @@ export class AudioPlaylistWeb
 
   private _emitStatus(): void {
     this.emit(PLAYLIST_STATUS_UPDATE, this._getStatus());
+    this._updateMediaSession();
+  }
+
+  private _updateMediaSession(): void {
+    mediaSessionController.updatePlaybackState(this);
+    mediaSessionController.updatePositionState(this);
   }
 }

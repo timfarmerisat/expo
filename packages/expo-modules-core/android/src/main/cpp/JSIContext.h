@@ -2,37 +2,25 @@
 
 #pragma once
 
+#include "ExpoHeader.pch"
 #include "JavaScriptRuntime.h"
 #include "JavaScriptModuleObject.h"
 #include "JavaScriptValue.h"
 #include "JavaScriptObject.h"
-#include "JavaReferencesCache.h"
 #include "JSReferencesCache.h"
 #include "JNIDeallocator.h"
 #include "ThreadSafeJNIGlobalRef.h"
 #include "javaclasses/JSRunnable.h"
 
-#include <fbjni/fbjni.h>
-#include <jsi/jsi.h>
-#include <ReactCommon/CallInvokerHolder.h>
 #include <ReactCommon/CallInvoker.h>
-
-#if IS_NEW_ARCHITECTURE_ENABLED
-
-#include <ReactCommon/RuntimeExecutor.h>
-#include <react/jni/JRuntimeExecutor.h>
-
-#endif
-
-#include <ReactCommon/NativeMethodCallInvokerHolder.h>
-
-#include <memory>
 
 namespace jni = facebook::jni;
 namespace jsi = facebook::jsi;
 namespace react = facebook::react;
 
 namespace expo {
+
+class JSHeapAccessExecutorHolder;
 
 /**
  * A JNI wrapper to initialize CPP part of modules and access all data from the module registry.
@@ -128,11 +116,17 @@ public:
   std::shared_ptr<JavaScriptRuntime> runtimeHolder;
   std::unique_ptr<JSReferencesCache> jsRegistry;
   jni::global_ref<JNIDeallocator::javaobject> jniDeallocator;
+  std::shared_ptr<JSHeapAccessExecutorHolder> jsHeapAccessExecutor;
 
   void registerClass(jni::local_ref<jclass> native,
                      jni::local_ref<JavaScriptObject::javaobject> jsClass);
 
   jni::local_ref<JavaScriptObject::javaobject> getJavascriptClass(jni::local_ref<jclass> native);
+
+  /**
+   * Installs module class prototypes and `SharedObject.__resolveInWorklet` in this runtime.
+   */
+  void installModuleClasses();
 
   void prepareForDeallocation() noexcept;
 
@@ -151,6 +145,9 @@ private:
   friend HybridBase;
 
   bool wasDeallocated_ = false;
+
+  jni::local_ref<JavaScriptObject::javaobject> ensureClassInstalled(jsi::Runtime &rt, jni::local_ref<jclass> nativeClass);
+  jsi::Value resolveSharedObjectInstance(jsi::Runtime &rt, int objectId, jni::local_ref<JavaScriptObject::javaobject> jsClassObj);
 
   [[nodiscard]] inline jni::local_ref<JavaScriptModuleObject::javaobject>
   callGetJavaScriptModuleObjectMethod(const std::string &moduleName) const;

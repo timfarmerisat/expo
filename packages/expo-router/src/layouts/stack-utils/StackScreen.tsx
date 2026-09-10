@@ -1,20 +1,18 @@
 'use client';
-import type { ParamListBase, StackNavigationState } from '@react-navigation/native';
-import type { NativeStackNavigationEventMap } from '@react-navigation/native-stack';
-import { NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import { Children, isValidElement, useMemo, type PropsWithChildren } from 'react';
 
-import { StackHeaderComponent, appendStackHeaderPropsToOptions } from './StackHeaderComponent';
-import {
-  StackScreenTitle,
-  appendStackScreenTitlePropsToOptions,
-  StackScreenBackButton,
-  appendStackScreenBackButtonPropsToOptions,
-} from './screen';
-import { StackToolbar, appendStackToolbarPropsToOptions } from './toolbar';
+import type { ParamListBase, StackNavigationState } from '../../react-navigation/native';
+import type {
+  NativeStackNavigationOptions,
+  NativeStackNavigationEventMap,
+} from '../../react-navigation/native-stack';
 import type { ScreenProps as BaseScreenProps } from '../../useScreens';
 import { isChildOfType } from '../../utils/children';
 import { Screen } from '../../views/Screen';
+import { StackHeaderComponent, appendStackHeaderPropsToOptions } from './StackHeaderComponent';
+import { StackTitle, appendStackTitlePropsToOptions } from './StackTitle';
+import { StackScreenBackButton, appendStackScreenBackButtonPropsToOptions } from './screen';
+import { StackToolbar, appendStackToolbarPropsToOptions } from './toolbar';
 
 type StackBaseScreenProps = BaseScreenProps<
   NativeStackNavigationOptions,
@@ -27,6 +25,14 @@ export interface StackScreenProps extends PropsWithChildren {
   name?: StackBaseScreenProps['name'];
 
   /**
+   * Overrides React Activity behavior inherited from the stack. A number specifies how many
+   * screens must be above this route before its content is hidden.
+   *
+   * Only supported when used inside a Layout component.
+   */
+  activityEnabled?: StackBaseScreenProps['activityEnabled'];
+
+  /**
    * Options to configure the screen.
    *
    * Accepts an object or a function returning an object.
@@ -34,21 +40,6 @@ export interface StackScreenProps extends PropsWithChildren {
    * When used inside a page component, pass an options object directly.
    */
   options?: StackBaseScreenProps['options'];
-
-  /**
-   * Redirect to the nearest sibling route.
-   * If all children are `redirect={true}`, the layout will render `null` as there are no children to render.
-   *
-   * Only supported when used inside a Layout component.
-   */
-  redirect?: StackBaseScreenProps['redirect'];
-
-  /**
-   * Initial params to pass to the route.
-   *
-   * Only supported when used inside a Layout component.
-   */
-  initialParams?: StackBaseScreenProps['initialParams'];
 
   /**
    * Listeners for navigation events.
@@ -78,7 +69,7 @@ export interface StackScreenProps extends PropsWithChildren {
  *
  * Can be used in the `_layout.tsx` files, or directly in page components.
  *
- * When configuring header inside page components, prefer using `Stack.Toolbar`, `Stack.Header` and `Stack.Screen.*` components.
+ * When configuring header inside page components, prefer using `Stack.Title`, `Stack.Toolbar`, `Stack.Header` and `Stack.Screen.*` components.
  *
  * @example
  * ```tsx app/_layout.tsx
@@ -93,23 +84,6 @@ export interface StackScreenProps extends PropsWithChildren {
  *       />
  *    </Stack>
  *  );
- * }
- * ```
- *
- * @example
- * ```tsx app/home.tsx
- * import { Stack } from 'expo-router';
- *
- * export default function HomePage() {
- *   return (
- *     <>
- *       <Stack.Screen
- *         options={{ headerTransparent: true }}
- *       />
- *       <Stack.Screen.Title>Welcome Home</Stack.Screen.Title>
- *       // Page content
- *     </>
- *   );
  * }
  * ```
  */
@@ -135,7 +109,10 @@ export const StackScreen = Object.assign(
     );
   },
   {
-    Title: StackScreenTitle,
+    /**
+     * @deprecated Use `Stack.Title` instead.
+     */
+    Title: StackTitle,
     BackButton: StackScreenBackButton,
   }
 );
@@ -193,8 +170,8 @@ export function appendScreenStackPropsToOptions(
       return appendStackHeaderPropsToOptions(opts, child.props);
     }
 
-    if (isChildOfType(child, StackScreenTitle)) {
-      return appendStackScreenTitlePropsToOptions(opts, child.props);
+    if (isChildOfType(child, StackTitle)) {
+      return appendStackTitlePropsToOptions(opts, child.props);
     }
 
     if (isChildOfType(child, StackScreenBackButton)) {

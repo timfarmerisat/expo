@@ -2,7 +2,22 @@ import type { SharedRefType } from 'expo';
 import type { Ref } from 'react';
 import type { ProcessedColorValue, StyleProp, ViewStyle } from 'react-native';
 
-import { CameraPosition, Coordinates } from '../shared.types';
+import type { CameraMoveEvent, CameraPosition, Coordinates } from '../shared.types';
+
+/**
+ * @platform ios
+ */
+export type AppleMapsAnchor = {
+  /**
+   * The normalized horizontal anchor point from 0.0 (left edge) to 1.0 (right edge).
+   */
+  x: number;
+
+  /**
+   * The normalized vertical anchor point from 0.0 (top edge) to 1.0 (bottom edge).
+   */
+  y: number;
+};
 
 /**
  * @platform ios
@@ -340,6 +355,22 @@ export type AppleMapsAnnotation = {
    * The custom icon to display in the annotation.
    */
   icon?: SharedRefType<'image'>;
+
+  /**
+   * The point of the annotation's content that is placed at its coordinates.
+   * The default centers the content on the coordinates, so a pin-shaped icon needs
+   * `{ x: 0.5, y: 1 }` for its tip to point at them.
+   *
+   * The anchor resolves against the whole annotation content, which is the icon
+   * together with `text`. When `text` is set, the content can be larger than the
+   * icon and the same values will anchor a different point of it.
+   *
+   * > **Note:** `GoogleMaps.Marker` uses the same coordinate system but defaults to
+   * > `{ x: 0.5, y: 1 }`, the bottom-center of the icon.
+   *
+   * @default { x: 0.5, y: 0.5 }
+   */
+  anchor?: AppleMapsAnchor;
 } & AppleMapsMarker;
 
 /**
@@ -530,15 +561,9 @@ export type AppleMapsViewProps = {
 
   /**
    * Lambda invoked when the map was moved by the user.
+   * Also runs once on initial mount with the starting viewport.
    */
-  onCameraMove?: (event: {
-    coordinates: Coordinates;
-    latitudeDelta: number;
-    longitudeDelta: number;
-    zoom: number;
-    tilt: number;
-    bearing: number;
-  }) => void;
+  onCameraMove?: (event: CameraMoveEvent) => void;
 };
 
 /**
@@ -549,7 +574,7 @@ export type AppleMapsViewType = {
    * Update camera position.
    * Animation duration is not supported on iOS.
    *
-   * @param config New camera postion.
+   * @param config New camera position.
    */
   setCameraPosition: (config?: CameraPosition) => void;
 

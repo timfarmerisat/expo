@@ -1,4 +1,4 @@
-import { ViewProps } from 'react-native';
+import type { ViewProps } from 'react-native';
 
 import type { VideoPlayer } from './VideoPlayer.types';
 
@@ -22,7 +22,7 @@ export type SurfaceType = 'textureView' | 'surfaceView';
 
 export interface VideoViewProps extends ViewProps {
   /**
-   * A video player instance. Use [`useVideoPlayer()`](#usevideoplayersource-setup) hook to create one.
+   * A video player instance. Use [`useVideoPlayer()`](#usevideoplayersource-setup-playerbuilderoptions) hook to create one.
    */
   player?: VideoPlayer | null;
 
@@ -162,6 +162,17 @@ export interface VideoViewProps extends ViewProps {
   useExoShutter?: boolean;
 
   /**
+   * Determines whether the native controls are shown automatically when playback starts, pauses, or ends.
+   * When `false`, the controls won't appear automatically, but can still be shown by tapping the view. This is
+   * useful when playback is driven programmatically (for example an auto-advancing playlist), where the controls
+   * appearing on every play reads as a flash.
+   *
+   * @platform android
+   * @default true
+   */
+  controllerAutoShow?: boolean;
+
+  /**
    * Determines the [cross origin policy](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/crossorigin) used by the underlying native view on web.
    * If `undefined` (default), does not use CORS at all. If set to `'anonymous'`, the video will be loaded with CORS enabled.
    * Note that some videos may not play if CORS is enabled, depending on the CDN settings.
@@ -263,6 +274,15 @@ export type FullscreenOrientation =
   | 'landscapeRight';
 
 /**
+ * Determines whether the player keeps fullscreen when Picture in Picture (PiP) stops.
+ * Only has an effect if the player was in fullscreen when PiP started.
+ * - `'always'`: Always re-enter fullscreen when PiP stops.
+ * - `'autoEnter'`: Re-enter fullscreen only when PiP was started automatically by the app going to the background.
+ * - `'never'`: Do not re-enter fullscreen when PiP stops.
+ */
+export type KeepFullscreenOnPiPStopBehavior = 'always' | 'autoEnter' | 'never';
+
+/**
  * Describes the options for fullscreen video mode.
  */
 export type FullscreenOptions = {
@@ -290,4 +310,13 @@ export type FullscreenOptions = {
    * @platform ios
    */
   autoExitOnRotate?: boolean;
+
+  /**
+   * Determines whether the player keeps fullscreen when Picture in Picture (PiP) stops.
+   * Only has an effect if the player was in fullscreen when PiP started.
+   *
+   * @default 'autoEnter'
+   * @platform ios
+   */
+  keepFullscreenOnPiPStop?: KeepFullscreenOnPiPStopBehavior;
 };

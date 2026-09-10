@@ -1,12 +1,13 @@
 // Copyright 2022-present 650 Industries. All rights reserved.
 import Testing
-import ExpoModulesTestCore
 
 @testable import ExpoModulesCore
 
 @Suite
+@JavaScriptActor
 struct FormatterTests {
   @Suite("E2E")
+  @JavaScriptActor
   struct E2E {
     let appContext: AppContext
 
@@ -40,7 +41,7 @@ struct FormatterTests {
         "expo.modules.FormatterModule.f1Async().then((result) => { globalThis.result = result; })"
       )
       try await expectEventually {
-        try appContext.runtime.eval("!!globalThis.result").asBool() == true
+        try await appContext.runtime.eval("!!globalThis.result").asBool() == true
       }
       let r1 = try appContext.runtime.eval("globalThis.result").asObject()
 
@@ -50,7 +51,7 @@ struct FormatterTests {
         "expo.modules.FormatterModule.f2Async().then((result) => { globalThis.result = result; })"
       )
       try await expectEventually {
-        try appContext.runtime.eval("!!globalThis.result").asBool() == true
+        try await appContext.runtime.eval("!!globalThis.result").asBool() == true
       }
       let r2 = try appContext.runtime.eval("globalThis.result").asObject()
 

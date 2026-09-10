@@ -1,4 +1,5 @@
 import { parse } from '@babel/core';
+import type { Module, ReadOnlyGraph } from '@expo/metro/metro/DeltaBundler/types';
 
 import { serializeShakingAsync } from '../fork/__tests__/serializer-test-utils';
 import { isModuleEmptyFor } from '../treeShakeSerializerPlugin';
@@ -12,16 +13,19 @@ jest.mock('../exportHermes', () => {
   };
 });
 
-jest.mock('../findUpPackageJsonPath', () => ({
+jest.mock('../../utils/findUpPackageJsonPath', () => ({
   findUpPackageJsonPath: jest.fn(() => null),
 }));
 
-function expectSideEffects(graph, name: string) {
-  return expect(graph.dependencies.get(name).sideEffects);
+function expectSideEffects(graph: ReadOnlyGraph, name: string) {
+  return expect(
+    (graph.dependencies.get(name) as (Module & { sideEffects?: boolean | null }) | undefined)
+      ?.sideEffects
+  );
 }
-function expectImports(graph, name: string) {
+function expectImports(graph: ReadOnlyGraph, name: string) {
   if (!graph.dependencies.has(name)) throw new Error(`Module not found: ${name}`);
-  return expect([...graph.dependencies.get(name).dependencies.values()]);
+  return expect([...graph.dependencies.get(name)!.dependencies.values()]);
 }
 
 it(`doesn't unlink if a single import chain is removed`, async () => {
@@ -394,35 +398,37 @@ it(`barrel default as`, async () => {
 });
 
 describe(isModuleEmptyFor, () => {
-  [
-    ``,
-    `// comment`,
-    `"use strict"`,
-    // `true`,
+  (
     [
-      'directives',
-      `
+      ``,
+      `// comment`,
+      `"use strict"`,
+      // `true`,
+      [
+        'directives',
+        `
     "use client"
     // Hey
     `,
-    ],
-    [
-      'multi-line comment',
-      `
-      /** 
-       * multi-line comment 
+      ],
+      [
+        'multi-line comment',
+        `
+      /**
+       * multi-line comment
        */`,
-    ],
-  ].forEach((source) => {
+      ],
+    ] as (string | [string, string])[]
+  ).forEach((source) => {
     const [title, src] = Array.isArray(source) ? source : [source, source];
     it(`returns true for: ${title}`, () => {
-      expect(isModuleEmptyFor(parse(src, { sourceType: 'unambiguous' }))).toBe(true);
+      expect(isModuleEmptyFor(parse(src, { sourceType: 'unambiguous' }) ?? undefined)).toBe(true);
     });
   });
   [`export {}`, `const foo = 'bar'`, `3`, `{}`, `true`, `console.log('hey')`].forEach((source) => {
     const [title, src] = Array.isArray(source) ? source : [source, source];
     it(`returns false for: ${title}`, () => {
-      expect(isModuleEmptyFor(parse(src, { sourceType: 'unambiguous' }))).toBe(false);
+      expect(isModuleEmptyFor(parse(src, { sourceType: 'unambiguous' }) ?? undefined)).toBe(false);
     });
   });
 });
@@ -1855,6 +1861,7 @@ it(`recursively expands export all statements while omitting existing and defaul
         if (e && e.__esModule) return e;
         var n = {};
         if (e) Object.keys(e).forEach(function (k) {
+          if (k === 'default') return;
           var d = Object.getOwnPropertyDescriptor(e, k);
           Object.defineProperty(n, k, d.get ? d : {
             enumerable: true,

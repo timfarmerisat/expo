@@ -6,16 +6,16 @@
  */
 
 import JsonFile from '@expo/json-file';
-import spawnAsync, { SpawnOptions, SpawnResult } from '@expo/spawn-async';
+import type { SpawnOptions, SpawnResult } from '@expo/spawn-async';
+import spawnAsync from '@expo/spawn-async';
 import chalk from 'chalk';
 import { spawn, execSync } from 'child_process';
 import fs from 'fs';
 import assert from 'node:assert';
-import { Ora } from 'ora';
+import type { Ora } from 'ora';
 import { EOL } from 'os';
 import path from 'path';
 
-import { xcrunAsync } from './xcrun';
 import { getExpoHomeDirectory } from '../../../api/user/UserSettings';
 import * as Log from '../../../log';
 import { createTempFilePath } from '../../../utils/createTempPath';
@@ -24,10 +24,10 @@ import { installExitHooks } from '../../../utils/exit';
 import { isInteractive } from '../../../utils/interactive';
 import { ora } from '../../../utils/ora';
 import { confirmAsync } from '../../../utils/prompts';
+import { event } from '../events';
+import { xcrunAsync } from './xcrun';
 
 const DEVICE_CTL_EXISTS_PATH = path.join(getExpoHomeDirectory(), 'devicectl-exists');
-
-const debug = require('debug')('expo:devicectl') as typeof console.log;
 
 type AnyEnum<T extends string = string> = T | (string & object);
 
@@ -58,7 +58,7 @@ type DeviceCtlHardwareProperties = {
   platform: AnyEnum<'iOS' | 'xrOS'>;
   /** "iPhone15,3" */
   productType: AnyEnum<'iPhone13,4' | 'iPhone15,3'>;
-  reality: AnyEnum<'physical'>;
+  reality: AnyEnum<'physical' | 'simulated'>;
   /** "X2X1CC1XXX" */
   serialNumber: string;
   supportedCPUTypes: DeviceCtlCpuType[];
@@ -151,12 +151,12 @@ export async function devicectlAsync(
 
 export async function getConnectedAppleDevicesAsync() {
   if (!hasDevicectlEverBeenInstalled()) {
-    debug('devicectl not found, skipping remote Apple devices.');
+    event('devicectl_not_found', {});
     return [];
   }
 
   const tmpPath = createTempFilePath();
-  const devices = await devicectlAsync([
+  await devicectlAsync([
     'list',
     'devices',
     '--json-output',
@@ -165,10 +165,9 @@ export async function getConnectedAppleDevicesAsync() {
     '--timeout',
     '5',
   ]);
-  debug(devices.stdout);
   const devicesJson = await JsonFile.readAsync(tmpPath);
 
-  if (![2, 3].includes((devicesJson as any)?.info?.jsonVersion)) {
+  if (![2, 3, 5].includes((devicesJson as any)?.info?.jsonVersion)) {
     Log.warn(
       'Unexpected devicectl JSON version output from devicectl. Connecting to physical Apple devices may not work as expected.'
     );
@@ -176,7 +175,9 @@ export async function getConnectedAppleDevicesAsync() {
 
   assertDevicesJson(devicesJson);
 
-  return devicesJson.result.devices as DeviceCtlDevice[];
+  return (devicesJson.result.devices as DeviceCtlDevice[]).filter(
+    (device) => device?.hardwareProperties?.reality !== 'simulated'
+  );
 }
 
 function assertDevicesJson(
@@ -256,7 +257,7 @@ async function installAppWithDeviceCtlInternalAsync(
       bundleIdOrAppPath,
     ];
     const childProcess = spawn('xcrun', args);
-    debug('xcrun ' + args.join(' '));
+    event('devicectl_install_spawn', { command: 'xcrun ' + args.join(' ') });
 
     let currentProgress = 0;
     let hasStarted = false;
@@ -291,13 +292,11 @@ async function installAppWithDeviceCtlInternalAsync(
 
         const match = str.match(/(\d+)%\.\.\./);
         if (match) {
-          updateProgress(parseInt(match[1], 10));
+          updateProgress(parseInt(match[1]!, 10));
         } else if (hasStarted) {
           updateProgress(100);
         }
       });
-
-      debug('[stdout]:', strings);
     });
 
     let stderrBuffer = '';
@@ -306,7 +305,6 @@ async function installAppWithDeviceCtlInternalAsync(
     });
 
     childProcess.on('close', (code) => {
-      debug('[close]: ' + code);
       if (code === 0) {
         resolve();
       } else {
@@ -345,7 +343,7 @@ export async function launchAppWithDeviceCtl(deviceId: string, bundleId: string)
 
 /** Find all error codes from the output log */
 function getDeviceCtlErrorCodes(log: string): string[] {
-  return [...log.matchAll(/BSErrorCodeDescription\s+=\s+(.*)$/gim)].map(([_line, code]) => code);
+  return [...log.matchAll(/BSErrorCodeDescription\s+=\s+(.*)$/gim)].map(([_line, code]) => code!);
 }
 
 let hasEverBeenInstalled: boolean | undefined;
@@ -387,7 +385,7 @@ export async function installAndLaunchAppAsync(props: {
   udid: string;
   deviceName: string;
 }): Promise<void> {
-  debug('Running on device:', props);
+  event('devicectl_install_device', { props: props as Record<string, unknown> });
   const { bundle, bundleIdentifier, udid, deviceName } = props;
   let indicator: Ora | undefined;
 

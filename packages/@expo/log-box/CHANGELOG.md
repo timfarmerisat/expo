@@ -10,9 +10,128 @@
 
 ### 💡 Others
 
+## 58.0.0 — 2026-09-10
+
+### 🐛 Bug fixes
+
+- Fix the web overlay bundle printing a `Deep imports from the 'react-native' package are deprecated` warning on every load. ([#47772](https://github.com/expo/expo/pull/47772) by [@ramonclaudio](https://github.com/ramonclaudio))
+- Resolve development server requests from the URL the bundle was loaded from, instead of the default Metro address ([#48276](https://github.com/expo/expo/pull/48276) by [@kitten](https://github.com/kitten))
+- Stop the iOS webview wrapper printing `Unknown message type` for DOM runtime messages that LogBox does not handle, matching Android. ([#48813](https://github.com/expo/expo/pull/48813) by [@kudo](https://github.com/Kudo))
+- [ios] Fix LogBox not appearing for fatal errors reported from the JS thread ([#49056](https://github.com/expo/expo/pull/49056) by [@hassankhan](https://github.com/hassankhan))
+- [Android] Explicitly enable `buildFeatures.buildConfig`, required by AGP 9. ([#47729](https://github.com/expo/expo/pull/47729) by [@gabrieldonadel](https://github.com/gabrieldonadel))
+
+### 💡 Others
+
+- [iOS] Split the mixed Swift/Objective-C++ sources into `ExpoLogBox` and `ExpoLogBoxObjC` so the module can be built with Swift Package Manager, and add a `Package.swift` describing them. ([#47651](https://github.com/expo/expo/pull/47651) by [@chrfalch](https://github.com/chrfalch))
+- Get the development server address from the loaded bundle. ([#48722](https://github.com/expo/expo/pull/48722) by [@ramonclaudio](https://github.com/ramonclaudio))
+
+## 57.0.2 - 2026-07-29
+
+_This version does not introduce any user-facing changes._
+
+## 57.0.1 - 2026-07-15
+
+_This version does not introduce any user-facing changes._
+
+## 57.0.0 - 2026-06-25
+
+### 🐛 Bug fixes
+
+- Add missing `expo` peer dependency. ([#46950](https://github.com/expo/expo/pull/46950) by [@zoontek](https://github.com/zoontek))
+
+## 56.0.13 - 2026-06-10
+
+### 🐛 Bug fixes
+
+- Preserve Error call stacks when capturing component stacks. ([#46584](https://github.com/expo/expo/pull/46584) by [@krystofwoldrich](https://github.com/krystofwoldrich))
+
+## 56.0.12 — 2026-05-20
+
+_This version does not introduce any user-facing changes._
+
+## 56.0.11 — 2026-05-19
+
+_This version does not introduce any user-facing changes._
+
+## 56.0.10 — 2026-05-15
+
+_This version does not introduce any user-facing changes._
+
+## 56.0.9 — 2026-05-13
+
+_This version does not introduce any user-facing changes._
+
+## 56.0.8 — 2026-05-13
+
+_This version does not introduce any user-facing changes._
+
+## 56.0.7 — 2026-05-11
+
+_This version does not introduce any user-facing changes._
+
+## 56.0.6 — 2026-05-08
+
+### 🐛 Bug fixes
+
+- Fix error overlay footer overlapping content by using fixed positioning and adding bottom padding. ([#45526](https://github.com/expo/expo/pull/45526) by [@EvanBacon](https://github.com/EvanBacon))
+
+## 56.0.5 — 2026-05-07
+
+_This version does not introduce any user-facing changes._
+
+## 56.0.4 — 2026-05-06
+
+_This version does not introduce any user-facing changes._
+
+## 56.0.3 — 2026-05-06
+
+_This version does not introduce any user-facing changes._
+
+## 56.0.2 — 2026-05-06
+
+_This version does not introduce any user-facing changes._
+
+## 56.0.1 — 2026-05-05
+
+_This version does not introduce any user-facing changes._
+
+## 56.0.0 — 2026-05-05
+
+### 🛠 Breaking changes
+
+- Bumped minimum iOS/tvOS version to 16.4, macOS to 13.4. ([#43296](https://github.com/expo/expo/pull/43296) by [@tsapeta](https://github.com/tsapeta))
+
+### 💡 Others
+
+- Stop @expo/log-box from rebuilding on every pnpm install ([#44330](https://github.com/expo/expo/pull/44330) by [@gabrieldonadel](https://github.com/gabrieldonadel))
+
 ### ⚠️ Notices
 
 - Added support for React Native 0.84.x. ([#43018](https://github.com/expo/expo/pull/43018) by [@chrfalch](https://github.com/chrfalch))
+
+## 55.0.12 - 2026-05-05
+
+_This version does not introduce any user-facing changes._
+
+## 55.0.11 - 2026-04-21
+
+### 💡 Others
+
+- Use `OkHttpClientProvider` instead of raw `OkHttpClient` ([#44416](https://github.com/expo/expo/pull/44416)) by [@cortinico](https://github.com/cortinico) ([#44416](https://github.com/expo/expo/pull/44416) by [@cortinico](https://github.com/cortinico))
+
+## 55.0.10 - 2026-04-02
+
+_This version does not introduce any user-facing changes._
+
+## 55.0.9 - 2026-04-02
+
+### 🐛 Bug fixes
+
+- Add native no-op for `renderInShadowRoot` to avoid `react-dom` resolution errors on native platforms. ([#43893](https://github.com/expo/expo/issues/43893)) ([#44190](https://github.com/expo/expo/pull/44190) by [@mvincentong](https://github.com/mvincentong))
+
+## 55.0.8 - 2026-03-27
+
+_This version does not introduce any user-facing changes._
 
 ## 55.0.7 — 2026-02-16
 

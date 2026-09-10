@@ -23,7 +23,7 @@ import { StyleSheet, type ViewProps } from 'react-native';
  */
 function ShimSlotForReactNative(Component: typeof RUISlot): typeof RUISlot {
   return forwardRef(function RNSlotHOC({ style, ...props }, ref) {
-    style = useMemo(() => StyleSheet.flatten(style), [style]);
+    const flattenedStyle = useMemo(() => StyleSheet.flatten(style), [style]);
     if (process.env.NODE_ENV !== 'production') {
       if (React.isValidElement(props.children)) {
         if (
@@ -38,11 +38,13 @@ function ShimSlotForReactNative(Component: typeof RUISlot): typeof RUISlot {
         }
       }
     }
-    return <Component ref={ref} {...props} style={style} />;
+    return <Component ref={ref} {...props} style={flattenedStyle} />;
   });
 }
 
-export interface Slot<Props = ViewProps, Ref = Component<ViewProps>>
-  extends ForwardRefExoticComponent<Props & RefAttributes<Ref>> {}
+export interface Slot<
+  Props = ViewProps,
+  Ref = Component<ViewProps>,
+> extends ForwardRefExoticComponent<Props & RefAttributes<Ref>> {}
 
 export const Slot: Slot = ShimSlotForReactNative(RUISlot) as Slot;

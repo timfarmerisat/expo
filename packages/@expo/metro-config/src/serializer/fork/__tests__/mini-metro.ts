@@ -1,26 +1,32 @@
+import metroConfigDefaults from '@expo/metro/metro-config/defaults';
 import type {
-  Dependency,
+  Dependency as MetroDependency,
   MixedOutput,
   Module,
   ReadOnlyGraph,
   SerializerOptions,
 } from '@expo/metro/metro/DeltaBundler/types';
 import CountingSet from '@expo/metro/metro/lib/CountingSet';
-import metroConfigDefaults from '@expo/metro/metro-config/defaults';
 import * as path from 'path';
 
-import { JsTransformOptions } from '../../../transform-worker/metro-transform-worker';
+import type { Dependency as ExpoTransformDependency } from '../../../transform-worker/collect-dependencies';
+import type { JsTransformOptions } from '../../../transform-worker/metro-transform-worker';
 import * as expoMetroTransformWorker from '../../../transform-worker/transform-worker';
+import { wrapTransformResultMaps } from '../../packedMap';
 
 export const projectRoot = '/app';
 
-const METRO_CONFIG_DEFAULTS = metroConfigDefaults.getDefaultValues(null);
+const METRO_CONFIG_DEFAULTS = metroConfigDefaults.getDefaultValues();
 
-function toDependencyMap(...deps: Dependency[]): Map<string, Dependency> {
+type ExpoResolvedDependency = Omit<MetroDependency, 'data'> & {
+  data: ExpoTransformDependency;
+};
+
+function toDependencyMap(...deps: ExpoResolvedDependency[]): Map<string, MetroDependency> {
   const map = new Map();
 
   for (const dep of deps) {
-    map.set(dep.data.data.key ?? dep.absolutePath, dep);
+    map.set(dep.data.data.key ?? ('absolutePath' in dep ? dep.absolutePath : undefined), dep);
   }
 
   return map;
@@ -104,14 +110,9 @@ export async function microBundle({
   };
   preModulesFs?: Record<string, string>;
 }): Promise<
-  [
-    string,
-    readonly Module<MixedOutput>[],
-    ReadOnlyGraph<MixedOutput>,
-    SerializerOptions<MixedOutput>,
-  ]
+  [string, readonly Module<MixedOutput>[], ReadOnlyGraph<MixedOutput>, SerializerOptions]
 > {
-  const fullFs = {
+  const fullFs: Record<string, string> = {
     'expo-router/rsc/internal': ``,
     'react-server-dom-webpack/server': ``,
     'react-server-dom-webpack/client': ``,
@@ -146,12 +147,12 @@ export async function microBundle({
     inlineRequires: options.inlineRequires ?? false,
     customTransformOptions: {
       __proto__: null,
-      bytecode: options.hermes,
+      bytecode: options.hermes ? '1' : undefined,
       baseUrl: options.baseUrl,
       engine: options.hermes ? 'hermes' : undefined,
       environment: options.isReactServer ? 'react-server' : options.isServer ? 'node' : undefined,
       optimize: options.optimize ?? options.treeshake,
-      reactCompiler: options.reactCompiler,
+      reactCompiler: options.reactCompiler ? 'true' : undefined,
     },
     // NOTE: This is non-standard but it provides a cleaner output
     experimentalImportSupport: true,
@@ -272,19 +273,19 @@ export async function microBundle({
       asyncRequireModulePath: 'expo-mock/async-require',
 
       sourceUrl: options.sourceUrl,
-      createModuleId(filePath) {
+      createModuleId(filePath: string) {
         return filePath as unknown as number;
       },
       dev,
-      getRunModuleStatement(moduleId) {
+      getRunModuleStatement(moduleId: number | string) {
         return `TEST_RUN_MODULE(${JSON.stringify(moduleId)});`;
       },
       includeAsyncPaths: dev,
-      shouldAddToIgnoreList(module) {
+      shouldAddToIgnoreList(_module: Module) {
         return false;
       },
       modulesOnly: false,
-      processModuleFilter(module) {
+      processModuleFilter(_module: Module) {
         return true;
       },
       projectRoot,
@@ -296,7 +297,7 @@ export async function microBundle({
       _test_getPackageJson(dir: string) {
         const packageJsonPath = findUpPackageJsonPath(projectRoot, dir);
         if (packageJsonPath) {
-          return [JSON.parse(fullFs[packageJsonPath]), packageJsonPath];
+          return [JSON.parse(fullFs[packageJsonPath]!), packageJsonPath];
         }
         return [null, null];
       },
@@ -316,25 +317,29 @@ export async function parseModule(
   const absoluteFilePath = path.join(projectRoot, relativeFilePath);
   const codeBuffer = Buffer.from(code);
 
-  const { output, dependencies } = await expoMetroTransformWorker.transform(
-    // TODO: Maybe just pull from expo/metro-config to ensure correctness over time.
-    {
-      ...METRO_CONFIG_DEFAULTS.transformer,
-      asyncRequireModulePath: 'expo-mock/async-require',
-      unstable_allowRequireContext: true,
-      allowOptionalDependencies: true,
-      assetPlugins: [],
-      babelTransformerPath: '@expo/metro-config/build/babel-transformer',
-      ...transformConfig,
-    },
-    projectRoot,
-    absoluteFilePath,
-    codeBuffer,
-    {
-      inlineRequires: false,
-      ...transformOptions,
-      inlinePlatform: true,
-    }
+  // Mirror the production `Bundler.transformFile` wrapper so test
+  // fixtures see the same `data.map` shape readers do.
+  const { output, dependencies } = wrapTransformResultMaps(
+    await expoMetroTransformWorker.transform(
+      // TODO: Maybe just pull from expo/metro-config to ensure correctness over time.
+      {
+        ...METRO_CONFIG_DEFAULTS.transformer,
+        asyncRequireModulePath: 'expo-mock/async-require',
+        unstable_allowRequireContext: true,
+        allowOptionalDependencies: true,
+        assetPlugins: [],
+        babelTransformerPath: '@expo/metro-config/build/babel-transformer',
+        ...transformConfig,
+      },
+      projectRoot,
+      absoluteFilePath,
+      codeBuffer,
+      {
+        inlineRequires: false,
+        ...transformOptions,
+        inlinePlatform: true,
+      }
+    )
   );
 
   return {

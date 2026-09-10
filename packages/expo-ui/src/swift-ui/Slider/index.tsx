@@ -1,10 +1,11 @@
 import { requireNativeView } from 'expo';
+import { useRef } from 'react';
 import type { NativeSyntheticEvent } from 'react-native';
 
 import { Slot } from '../SlotView';
 import { type CommonViewModifierProps } from '../types';
 
-export type SliderProps = {
+export interface SliderProps extends CommonViewModifierProps {
   /**
    * The current value of the slider.
    */
@@ -21,6 +22,16 @@ export type SliderProps = {
    * The maximum value of the slider. Updating this value does not trigger callbacks if the current value is above `max`.
    */
   max?: number;
+  /**
+   * Lower limit the user can drag the thumb to. The visible track still
+   * spans `min..max`, but the thumb stops at `lowerLimit` during drag.
+   */
+  lowerLimit?: number;
+  /**
+   * Upper limit the user can drag the thumb to. The visible track still
+   * spans `min..max`, but the thumb stops at `upperLimit` during drag.
+   */
+  upperLimit?: number;
   /**
    * A label describing the slider's purpose.
    */
@@ -41,13 +52,14 @@ export type SliderProps = {
    * Callback triggered when the user starts or ends editing the slider.
    */
   onEditingChanged?: (isEditing: boolean) => void;
-} & CommonViewModifierProps;
+}
 
 type NativeSliderProps = Omit<
   SliderProps,
   'onValueChange' | 'onEditingChanged' | 'label' | 'minimumValueLabel' | 'maximumValueLabel'
 > & {
-  onValueChanged?: (event: NativeSyntheticEvent<{ value: number }>) => void;
+  mostRecentEventCount?: number;
+  onValueChanged?: (event: NativeSyntheticEvent<{ value: number; eventCount: number }>) => void;
   onEditingChanged?: (event: NativeSyntheticEvent<{ isEditing: boolean }>) => void;
   children?: React.ReactNode;
 };
@@ -57,7 +69,10 @@ const SliderNativeView: React.ComponentType<NativeSliderProps> = requireNativeVi
   'SliderView'
 );
 
-function transformSliderProps(props: SliderProps): NativeSliderProps {
+function transformSliderProps(
+  props: SliderProps,
+  eventCount: { current: number }
+): NativeSliderProps {
   const {
     label,
     minimumValueLabel,
@@ -68,11 +83,11 @@ function transformSliderProps(props: SliderProps): NativeSliderProps {
   } = props;
   return {
     ...restProps,
-    onValueChanged: onValueChange
-      ? ({ nativeEvent: { value } }) => {
-          onValueChange(value);
-        }
-      : undefined,
+    mostRecentEventCount: eventCount.current,
+    onValueChanged: ({ nativeEvent: { value, eventCount: nativeEventCount } }) => {
+      eventCount.current = nativeEventCount;
+      onValueChange?.(value);
+    },
     onEditingChanged: onEditingChanged
       ? ({ nativeEvent: { isEditing } }) => {
           onEditingChanged(isEditing);
@@ -83,9 +98,10 @@ function transformSliderProps(props: SliderProps): NativeSliderProps {
 
 export function Slider(props: SliderProps) {
   const { label, minimumValueLabel, maximumValueLabel } = props;
+  const eventCount = useRef(0);
 
   return (
-    <SliderNativeView {...transformSliderProps(props)}>
+    <SliderNativeView {...transformSliderProps(props, eventCount)}>
       {label && <Slot name="label">{label}</Slot>}
       {minimumValueLabel && <Slot name="minimum">{minimumValueLabel}</Slot>}
       {maximumValueLabel && <Slot name="maximum">{maximumValueLabel}</Slot>}

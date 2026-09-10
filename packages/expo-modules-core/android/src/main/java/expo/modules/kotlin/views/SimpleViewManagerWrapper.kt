@@ -21,7 +21,7 @@ class SimpleViewManagerWrapper(
     val handledProps = viewWrapperDelegate.updateProperties(viewToUpdate, propsMap)
     viewWrapperDelegate.updateStateProps(viewToUpdate)
     // Updates remaining props using RN implementation.
-    // To not triggered undefined setters we filtrated already handled properties.
+    // To not trigger undefined setters we filtrated already handled properties.
     super.updateProperties(
       viewToUpdate,
       ReactStylesDiffMap(FilteredReadableMap(propsMap, handledProps))
@@ -46,7 +46,7 @@ class SimpleViewManagerWrapper(
   override fun getNativeProps(): MutableMap<String, String> {
     val props = super.getNativeProps()
     viewWrapperDelegate.props.forEach { (key, prop) ->
-      props[key] = prop.type.kType.classifier.toString()
+      props[key] = prop.type.typeDescriptor.jClass.toString()
     }
     return props
   }

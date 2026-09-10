@@ -34,7 +34,7 @@ public class ExpoDevLauncherReactDelegateHandler: ExpoReactDelegateHandler, EXDe
   private weak var reactNativeFactory: RCTReactNativeFactory?
   private weak var reactDelegate: ExpoReactDelegate?
   private var launchOptions: [AnyHashable: Any]?
-  private var rootViewModuleName: String?
+  @objc public private(set) var rootViewModuleName: String?
   private var rootViewInitialProperties: [AnyHashable: Any]?
   private weak var rootViewController: UIViewController?
 
@@ -93,21 +93,7 @@ public class ExpoDevLauncherReactDelegateHandler: ExpoReactDelegateHandler, EXDe
     self.reactNativeFactory = reactDelegate.reactNativeFactory as? RCTReactNativeFactory
 
     // Reset rctAppDelegate so we can relaunch the app
-    if RCTIsNewArchEnabled() {
-      self.reactNativeFactory?.rootViewFactory.setValue(nil, forKey: "_reactHost")
-    } else {
-      self.reactNativeFactory?.bridge = nil
-      self.reactNativeFactory?.rootViewFactory.bridge = nil
-    }
-
-    #if RCT_DEV_MENU
-    // Set core dev menu configuration to disable shortcuts and shake gesture
-    self.reactNativeFactory?.devMenuConfiguration = RCTDevMenuConfiguration(
-      devMenuEnabled: true,
-      shakeGestureEnabled: false,
-      keyboardShortcutsEnabled: false
-    )
-    #endif
+    self.reactNativeFactory?.rootViewFactory.setValue(nil, forKey: "_reactHost")
 
     let rootView = reactDelegate.reactNativeFactory.recreateRootView(
       withBundleURL: developmentClientController.sourceUrl(),
@@ -115,8 +101,20 @@ public class ExpoDevLauncherReactDelegateHandler: ExpoReactDelegateHandler, EXDe
       initialProps: self.rootViewInitialProperties,
       launchOptions: developmentClientController.getLaunchOptions()
     )
-    developmentClientController.appBridge = RCTBridge.current()
 
+    if !mount(rootView: rootView) {
+      fatalError("Invalid rootViewController returned from ExpoReactDelegate")
+    }
+  }
+
+  // MARK: - Mounting
+
+  /// Mounts `rootView` into the appropriate container. Used by both the
+  ///
+  /// Returns `false` if neither the launcher's own VC nor a fresh one from
+  /// the React delegate could be obtained — callers decide whether to
+  /// `fatalError` (initial launch) or report failure (runtime swap).
+  private func mount(rootView: UIView) -> Bool {
     let targetVC: UIViewController
 #if !os(macOS)
     let windowRootVC = rootViewController?.view?.window?.rootViewController
@@ -125,6 +123,12 @@ public class ExpoDevLauncherReactDelegateHandler: ExpoReactDelegateHandler, EXDe
       // Greenfield: add DevLauncherViewController as a child of the window's root VC
       // so react-native-screens finds a VC in the containment hierarchy with correct
       // layout margins.
+      //
+      // Note: this inserts DevLauncherViewController between ScreenOrientationViewController
+      // (the window root VC) and RNSNavigationController, which blocks react-native-screens'
+      // single-level VC traversal for orientation and other window traits.
+      // ScreenOrientationViewController.vcWithRNScreenOrientation() works around this by
+      // searching one level deeper through child VCs.
       rootViewController.view = rootView
       if rootViewController.parent != windowRootVC {
         windowRootVC.addChild(rootViewController)
@@ -133,7 +137,7 @@ public class ExpoDevLauncherReactDelegateHandler: ExpoReactDelegateHandler, EXDe
       rootViewController.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
       windowRootVC.view.addSubview(rootViewController.view)
       rootViewController.didMove(toParent: windowRootVC)
-      return
+      return true
     } else if let rootViewController {
       // Brownfield: the wrapper is embedded in a custom hierarchy, fall back to
       // DevLauncherViewController to avoid replacing the host app's root view.
@@ -141,7 +145,7 @@ public class ExpoDevLauncherReactDelegateHandler: ExpoReactDelegateHandler, EXDe
     } else if let fallbackVC = self.reactDelegate?.createRootViewController() {
       targetVC = fallbackVC
     } else {
-      fatalError("Invalid rootViewController returned from ExpoReactDelegate")
+      return false
     }
 #else
     // macOS: NSWindow has no rootViewController, fall back to DevLauncherViewController.
@@ -150,7 +154,7 @@ public class ExpoDevLauncherReactDelegateHandler: ExpoReactDelegateHandler, EXDe
     } else if let fallbackVC = self.reactDelegate?.createRootViewController() {
       targetVC = fallbackVC
     } else {
-      fatalError("Invalid rootViewController returned from ExpoReactDelegate")
+      return false
     }
 #endif
 #if os(macOS)
@@ -171,8 +175,29 @@ public class ExpoDevLauncherReactDelegateHandler: ExpoReactDelegateHandler, EXDe
 #else
     targetVC.view = rootView
 #endif
-    // it is purposeful that we don't clean up saved properties here, because we may initialize
-    // several React instances over a single app lifetime and we want them all to have the same
-    // initial properties
+    return true
+  }
+
+  // MARK: - Component switching from the dev menu
+
+  /// Creates a fresh root view bound to `moduleName` using the existing
+  /// React host (so the JS runtime is preserved) and mounts it into the
+  /// same view controller container as the original launch. Returns
+  /// `true` on success.
+  @objc public func switchAppRegistryComponent(to moduleName: String) -> Bool {
+    guard let reactDelegate = self.reactDelegate else {
+      return false
+    }
+
+    self.rootViewModuleName = moduleName
+
+    let rootView = reactDelegate.reactNativeFactory.recreateRootView(
+      withBundleURL: nil,
+      moduleName: moduleName,
+      initialProps: self.rootViewInitialProperties,
+      launchOptions: self.launchOptions
+    )
+
+    return mount(rootView: rootView)
   }
 }

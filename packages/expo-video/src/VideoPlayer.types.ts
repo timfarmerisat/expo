@@ -1,7 +1,7 @@
 import { SharedObject } from 'expo';
 
-import { VideoPlayerEvents } from './VideoPlayerEvents.types';
-import { VideoThumbnail } from './VideoThumbnail';
+import type { VideoPlayerEvents } from './VideoPlayerEvents.types';
+import type { VideoThumbnail } from './VideoThumbnail';
 
 /**
  * A class that represents an instance of the video player.
@@ -223,6 +223,25 @@ export declare class VideoPlayer extends SharedObject<VideoPlayerEvents> {
    * @platform ios
    */
   readonly availableVideoTracks: VideoTrack[];
+
+  /**
+   * Specifies the maximum resolution that the player will select when choosing between the video tracks of an adaptive stream.
+   * The player picks the highest-quality track that does not exceed this resolution.
+   *
+   * Set this property to `null` to remove the limit and allow all available resolutions. Dimensions
+   * which are not greater than zero are treated the same as `null`.
+   *
+   * The cap is enforced differently per platform:
+   * - On Android it is a hard constraint, unless no track satisfies it, in which case the lowest-resolution track is used.
+   * - On iOS it is a preferred maximum, which the player treats as a soft hint when selecting a track.
+   *
+   * > **Note:** On iOS this property only applies to HTTP Live Streaming (HLS) sources.
+   *
+   * @default null
+   * @platform android
+   * @platform ios
+   */
+  maxResolution: VideoSize | null;
 
   /**
    * Indicates whether the player is currently playing back the media to an external device via AirPlay.
@@ -663,6 +682,11 @@ export type VideoTrack = {
    * Specifies the frame rate of the video track in frames per second.
    */
   frameRate: number | null;
+
+  /**
+   * Specifies the video range of the video track.
+   */
+  videoRange: VideoRange;
 };
 
 /**
@@ -801,6 +825,20 @@ export type ScrubbingModeOptions = {
 };
 
 /**
+ * Determines whether the player is allowed to call [`Surface.setFrameRate`](https://developer.android.com/reference/android/view/Surface#setFrameRate(float,%20int))
+ * to match the display refresh rate to the frame rate of the video being played.
+ * - `'onlyIfSeamless'`: the display refresh rate is changed only when the switch is seamless (no visual interruption). This is the ExoPlayer default.
+ * - `'off'`: the player never calls `Surface.setFrameRate`.
+ *
+ * > On devices with adaptive refresh rate displays (for example, Pixel 9 and 10 series), the platform can respond to a 30 fps video
+ * > by lowering the display render rate and capping the rendering of the entire app, including scrolling and animations, at 30 Hz
+ * > for as long as the video is visible. Set this option to `'off'` to keep the UI running at the full refresh rate, for example
+ * > in a vertical video feed. Frame rate matching mainly benefits TV-class displays, where mismatched rates cause judder.
+ * @platform android
+ */
+export type VideoChangeFrameRateStrategy = 'off' | 'onlyIfSeamless';
+
+/**
  * Options to apply to the player builder before the native constructor is invoked
  * @platform android
  */
@@ -818,4 +856,19 @@ export type PlayerBuilderOptions = {
    * @platform android
    */
   seekForwardIncrement?: number;
+
+  /**
+   * Determines whether the player is allowed to change the display refresh rate to match the frame rate of the video.
+   * @default 'onlyIfSeamless'
+   * @platform android
+   */
+  videoChangeFrameRateStrategy?: VideoChangeFrameRateStrategy;
 };
+
+/**
+ * Specifies the dynamic range of the video content.
+ * - `sdr`: Standard Dynamic Range video.
+ * - `hlg`: Hybrid Log-Gamma - HDR backward-compatible with SDR displays
+ * - `pq`: Perceptual Quantizer - Formats like HDR10 and Dolby Vision
+ */
+export type VideoRange = 'sdr' | 'hlg' | 'pq';

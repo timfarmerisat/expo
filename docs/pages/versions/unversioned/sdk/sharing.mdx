@@ -20,7 +20,7 @@ import { ContentSpotlight } from '~/ui/components/ContentSpotlight';
 
 - `expo-sharing` for web is built on top of the Web Share API, which still has [very limited browser support](https://caniuse.com/#feat=web-share). Be sure to check that the API can be used before calling it by using `Sharing.isAvailableAsync()`.
 - **HTTPS required on web**: The Web Share API is only available on web when the page is served over https. Run your app with `npx expo start --tunnel` to enable it.
-- **No local file sharing on web**: Sharing local files by URI works on Android and iOS, but not on web. You cannot share local files on web by URI &mdash; you will need to upload them somewhere and share that URI.
+- **No local file sharing on web**: Sharing local files by URI works on Android and iOS, but not on web. You cannot share local files on web by URI — you will need to upload them somewhere and share that URI.
 
 ## Installation
 
@@ -108,7 +108,7 @@ The following example shows a configuration that allows sharing a single or mult
 
 ## Sharing to your app from other apps
 
-> **important** **Note**: This functionality is currently experimental. On iOS the share extension opens the main target, instead of processing the share in a sharing `ViewController`, which is not officially supported by Apple and may stop working in a future iOS release.
+> **important** **Note**: This functionality is currently [experimental](/more/release-statuses/#experimental). On iOS the share extension opens the main target, instead of processing the share in a sharing `ViewController`, which is not officially supported by Apple and may stop working in a future iOS release.
 
 When an app user shares content with your app, the operating system launches your app (also known as the process of bringing it to the foreground). To process this action, you need to configure your navigation to handle the incoming deep link.
 
@@ -141,6 +141,7 @@ If you are using [React Navigation](https://reactnavigation.org/), you can use t
 import * as Linking from 'expo-linking';
 import { createStaticNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import HandleShare from './HandleShare';
 
 const RootStack = createNativeStackNavigator({
   screens: {

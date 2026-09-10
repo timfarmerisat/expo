@@ -1,5 +1,9 @@
 name: TV compile test
 
+defaults:
+  tools:
+    pnpm: '12.2.1'
+
 on:
   push:
     branches: [main, 'sdk-*']
@@ -21,6 +25,7 @@ on:
       - packages/expo-structured-headers/ios/**
       - packages/expo-updates/ios/**
       - packages/expo-updates-interface/ios/**
+      - packages/expo-app-metrics/ios/**
       - packages/expo-audio/ios/**
       - packages/expo-blur/ios/**
       - packages/expo-crypto/ios/**
@@ -30,6 +35,7 @@ on:
       - packages/expo-localization/ios/**
       - packages/expo-media-library/ios/**
       - packages/expo-modules-core/ios/**
+      - packages/expo-observe/ios/**
       - packages/expo-network/ios/**
       - packages/expo-secure-store/ios/**
       - packages/expo-symbols/ios/**
@@ -52,6 +58,7 @@ on:
       - packages/expo-structured-headers/ios/**
       - packages/expo-updates/ios/**
       - packages/expo-updates-interface/ios/**
+      - packages/expo-app-metrics/ios/**
       - packages/expo-audio/ios/**
       - packages/expo-blur/ios/**
       - packages/expo-crypto/ios/**
@@ -62,6 +69,7 @@ on:
       - packages/expo-media-library/ios/**
       - packages/expo-modules-core/ios/**
       - packages/expo-network/ios/**
+      - packages/expo-observe/ios/**
       - packages/expo-secure-store/ios/**
       - packages/expo-symbols/ios/**
       - packages/expo-system-ui/ios/**
@@ -73,11 +81,6 @@ on:
 concurrency:
   group: ${{ workflow.filename }}-${{ github.ref }}
   cancel_in_progress: true
-
-defaults:
-  tools:
-    node: 22.14.0
-    yarn: 1.22.22
 
 jobs:
   ios:
@@ -101,16 +104,17 @@ jobs:
         env:
           UPDATES_HOST: localhost
           UPDATES_PORT: '4747'
+          PNPM_CONFIG_FROZEN_LOCKFILE: 'false'
         run: |
-          yarn --silent ts-node --transpile-only ./packages/expo-updates/e2e/setup/create-eas-project-tv.ts
+          pnpm --silent ts-node ./packages/expo-updates/e2e/setup/create-eas-project-tv.ts
           ls -la ../updates-e2e
       - name: Prepare TV project
         id: prepare
         working_directory: ../../../updates-e2e
         run: |
-          yarn ios:pod-install
+          pnpm run ios:pod-install
       - name: Compile TV project
         id: build
         working_directory: ../../../updates-e2e
         run: |
-          yarn tvos:build
+          pnpm run tvos:build

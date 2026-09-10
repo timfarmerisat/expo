@@ -1,0 +1,33 @@
+/**
+ * TypeScript / non-native fallback. The real per-platform implementations live
+ * in `optionsIconConverter.ios.ts` and `optionsIconConverter.android.ts`, which
+ * Metro resolves at runtime via platform extensions.
+ */
+import type { ColorValue } from 'react-native';
+import type { PlatformIconAndroid, PlatformIconIOS } from 'react-native-screens';
+
+import type { NativeTabsTriggerIconProps } from '../common/elements';
+import type { IconRenderingMode, NativeTabOptions } from '../types';
+import type { AwaitedIcon } from './icon';
+import { applyIconSrcOptions, applySelectedColor } from './optionsIconConverter.shared';
+
+export function appendIconOptions(options: NativeTabOptions, props: NativeTabsTriggerIconProps) {
+  if ('src' in props && props.src) {
+    applyIconSrcOptions(options, props);
+  }
+  applySelectedColor(options, props.selectedColor);
+}
+
+export function convertOptionsIconToScreensPropsIcon(
+  _icon: AwaitedIcon | undefined,
+  _renderingMode?: IconRenderingMode
+): PlatformIconIOS | PlatformIconAndroid | undefined {
+  return undefined;
+}
+
+export function resolveIconRenderingMode(
+  _icon: AwaitedIcon | undefined,
+  _iconColor?: ColorValue
+): IconRenderingMode | undefined {
+  return undefined;
+}

@@ -1,10 +1,9 @@
 import type { DependencyResolution } from 'expo-modules-autolinking/exports';
 import resolveFrom from 'resolve-from';
 
-import {
-  getVersionedNativeModuleNamesAsync,
-  VersionedNativeModuleNamesCache,
-} from './versionedNativeModules';
+import { dynamicRequire } from './dynamicRequire';
+import type { VersionedNativeModuleNamesCache } from './versionedNativeModules';
+import { getVersionedNativeModuleNamesAsync } from './versionedNativeModules';
 
 export function importAutolinkingExportsFromProject(
   projectDir: string
@@ -19,7 +18,7 @@ export function importAutolinkingExportsFromProject(
     );
   }
   try {
-    const mod = require(autolinkingExportsResolved);
+    const mod = dynamicRequire(autolinkingExportsResolved);
     if (
       typeof mod.makeCachedDependenciesLinker !== 'function' ||
       typeof mod.scanDependencyResolutionsForPlatform !== 'function'
@@ -54,7 +53,7 @@ export interface AutolinkingResolutionsCache extends VersionedNativeModuleNamesC
 // (e.g. `createContext`) add it here
 const EXTRA_BUNDLED_MODULES = ['@react-navigation/core', '@react-navigation/native'];
 
-const AUTOLINKING_PLATFORMS = ['android', 'ios'] as const;
+const AUTOLINKING_PLATFORMS = ['android', 'ios', 'web'] as const;
 
 export const scanNativeModuleResolutions = (
   cache: AutolinkingResolutionsCache,

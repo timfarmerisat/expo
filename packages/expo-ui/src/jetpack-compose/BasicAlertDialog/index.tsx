@@ -1,9 +1,10 @@
 import { requireNativeView } from 'expo';
 
-import { type ViewEvent, type ExpoModifier } from '../../types';
+import { PresentedContent } from '../../PresentedContentContext';
+import { type ViewEvent, type ModifierConfig, type DialogProperties } from '../../types';
 import { createViewModifierEventListener } from '../modifiers/utils';
 
-export type BasicAlertDialogProps = {
+export interface BasicAlertDialogProps {
   /**
    * The content to display inside the dialog.
    */
@@ -14,10 +15,14 @@ export type BasicAlertDialogProps = {
    */
   onDismissRequest?: () => void;
   /**
+   * Properties for the dialog window.
+   */
+  properties?: DialogProperties;
+  /**
    * Modifiers for the component.
    */
-  modifiers?: ExpoModifier[];
-};
+  modifiers?: ModifierConfig[];
+}
 
 type NativeBasicAlertDialogProps = Omit<BasicAlertDialogProps, 'onDismissRequest'> &
   ViewEvent<
@@ -47,5 +52,13 @@ function transformProps(props: BasicAlertDialogProps): NativeBasicAlertDialogPro
  * Unlike `AlertDialog`, this component does not have structured title/text/buttons slots.
  */
 export function BasicAlertDialog(props: BasicAlertDialogProps) {
-  return <BasicAlertDialogNativeView {...transformProps(props)} />;
+  const { children, ...rest } = props;
+  return (
+    <BasicAlertDialogNativeView {...transformProps(rest as BasicAlertDialogProps)}>
+      <PresentedContent>{children}</PresentedContent>
+    </BasicAlertDialogNativeView>
+  );
 }
+
+// Re-exported so the docs generator includes DialogProperties on the BasicAlertDialog API page.
+export type { DialogProperties };

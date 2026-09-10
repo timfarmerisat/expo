@@ -32,11 +32,18 @@ To capture a screenshot on the web and save it as an image, we'll use a third-pa
 
 Stop the development server and run the following command to install the library:
 
-<Terminal cmd={['$ npm install dom-to-image']} />
+<Terminal
+  cmd={{
+    npm: ['$ npm install dom-to-image'],
+    yarn: ['$ yarn add dom-to-image'],
+    pnpm: ['$ pnpm add dom-to-image'],
+    bun: ['$ bun add dom-to-image'],
+  }}
+/>
 
 > **Note:** The `dom-to-image` library is used here for illustrative purposes. For production apps, you may want to explore other solutions or APIs that better suit your specific use case.
 
-After installing it, make sure to restart the development server and press <kbd>w</kbd> in the terminal.
+After installing it, make sure to restart the development server and press <kbd>W</kbd> in the terminal.
 
 </Step>
 
@@ -44,29 +51,29 @@ After installing it, make sure to restart the development server and press <kbd>
 
 ## Add platform-specific code
 
-Using `Platform` module from React Native, we can implement platform-specific behavior. Inside **app/(tabs)/index.tsx**:
+Using `Platform` module from React Native, we can implement platform-specific behavior. Inside **src/app/(tabs)/index.tsx**:
 
 1. Import the `Platform` module from `react-native`.
 2. Import the `domtoimage` library from `dom-to-image`.
 3. Update the `onSaveImageAsync()` function to check whether the current platform is `'web'` with the `Platform.OS` property. If it is `'web'`, we'll use the `domtoimage.toJpeg()` method to convert and capture the current `<View>` as a JPEG image. Otherwise, we'll keep using the same logic added for native platforms.
 
 {/* prettier-ignore */}
-```tsx app/(tabs)/index.tsx
+```tsx src/app/(tabs)/index.tsx
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import { useEffect, useRef, useState } from 'react';
 import { ImageSourcePropType, View, StyleSheet, /* @tutinfo */Platform/* @end */ } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { captureRef } from 'react-native-view-shot';
-/* @tutinfo Import <CODE>domtoimage</CODE> library. */import domtoimage from 'dom-to-image';/* @end */
+/* @tutinfo Import `domtoimage` library. */import domtoimage from 'dom-to-image';/* @end */
 
-import Button from '@/components/Button';
-import ImageViewer from '@/components/ImageViewer';
-import IconButton from '@/components/IconButton';
-import CircleButton from '@/components/CircleButton';
-import EmojiPicker from '@/components/EmojiPicker';
-import EmojiList from '@/components/EmojiList';
-import EmojiSticker from '@/components/EmojiSticker';
+import Button from '@/components/button';
+import ImageViewer from '@/components/image-viewer';
+import IconButton from '@/components/icon-button';
+import CircleButton from '@/components/circle-button';
+import EmojiPicker from '@/components/emoji-picker';
+import EmojiList from '@/components/emoji-list';
+import EmojiSticker from '@/components/emoji-sticker';
 
 const PlaceholderImage = require('@/assets/images/background-image.png');
 
@@ -75,8 +82,7 @@ export default function Index() {
   const [showAppOptions, setShowAppOptions] = useState<boolean>(false);
   const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
   const [pickedEmoji, setPickedEmoji] = useState<ImageSourcePropType | undefined>(undefined);
-  const [permissionResponse, requestPermission] = MediaLibrary.usePermissions();
-
+  const [permissionResponse, requestPermission] = ImagePicker.useMediaLibraryPermissions();
   const imageRef = useRef<View>(null);
 
   useEffect(() => {
@@ -220,11 +226,4 @@ On running the app in a web browser, we can now save a screenshot:
 
 ## Summary
 
-<ProgressTracker
-  currentChapterIndex={7}
-  name="GET_STARTED"
-  summary="The app does everything we set out for it to do, so it's time to shift our focus toward the purely aesthetic.."
-  nextChapterDescription="In the next chapter, we will customize the app's status bar, splash screen, and app icon."
-  nextChapterTitle="Configure status bar, splash screen and app icon"
-  nextChapterLink="/tutorial/configuration"
-/>
+<ProgressTracker name="GET_STARTED" currentChapterSlug="/tutorial/platform-differences" />

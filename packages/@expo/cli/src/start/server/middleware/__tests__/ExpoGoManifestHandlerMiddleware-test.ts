@@ -1,4 +1,4 @@
-import { ExpoConfig } from '@expo/config';
+import type { ExpoConfig } from '@expo/config';
 import { vol } from 'memfs';
 import { parseMultipart } from 'multitars';
 
@@ -9,15 +9,21 @@ import {
   mockExpoRootChain,
   mockSelfSigned,
 } from '../../../../utils/__tests__/fixtures/certificates';
+import { isInteractive } from '../../../../utils/interactive';
+import { selectAsync } from '../../../../utils/prompts';
 import {
   ExpoGoManifestHandlerMiddleware,
   ResponseContentType,
 } from '../ExpoGoManifestHandlerMiddleware';
-import { ManifestMiddlewareOptions } from '../ManifestMiddleware';
+import type { ManifestMiddlewareOptions } from '../ManifestMiddleware';
 import { resolveRuntimeVersionWithExpoUpdatesAsync } from '../resolveRuntimeVersionWithExpoUpdatesAsync';
-import { ServerRequest } from '../server.types';
+import type { ServerRequest } from '../server.types';
 
 jest.mock('../../../../api/user/user');
+jest.mock('../../../../utils/prompts');
+jest.mock('../../../../utils/interactive', () => ({
+  isInteractive: jest.fn(() => true),
+}));
 jest.mock('../../../../log');
 jest.mock('../../../../api/graphql/queries/AppQuery', () => ({
   AppQuery: {
@@ -97,6 +103,8 @@ describe('getParsedHeaders', () => {
       responseContentType: ResponseContentType.TEXT_PLAIN,
       hostname: null,
       platform: 'ios',
+      protocol: undefined,
+      forwarded: null,
     });
   });
 
@@ -110,6 +118,8 @@ describe('getParsedHeaders', () => {
       expectSignature: null,
       hostname: null,
       platform: 'android',
+      protocol: undefined,
+      forwarded: null,
     });
   });
 
@@ -126,6 +136,8 @@ describe('getParsedHeaders', () => {
       expectSignature: null,
       hostname: null,
       platform: 'android',
+      protocol: undefined,
+      forwarded: null,
     });
 
     expect(
@@ -140,6 +152,8 @@ describe('getParsedHeaders', () => {
       expectSignature: null,
       hostname: null,
       platform: 'android',
+      protocol: undefined,
+      forwarded: null,
     });
   });
 
@@ -162,6 +176,44 @@ describe('getParsedHeaders', () => {
       hostname: 'localhost',
       // We don't care much about the platform here since it's already tested.
       platform: 'ios',
+      protocol: undefined,
+      forwarded: null,
+    });
+  });
+
+  it('parses the forwarded address when forwarding headers are present', () => {
+    expect(
+      middleware.getParsedHeaders(
+        asReq({
+          url: 'http://localhost:3000',
+          headers: {
+            host: 'localhost:8081',
+            'expo-platform': 'ios',
+            forwarded: 'host="proxy.test:4443";proto=https',
+          },
+        })
+      )
+    ).toMatchObject({
+      hostname: 'localhost',
+      platform: 'ios',
+      protocol: 'https',
+      forwarded: { authority: 'proxy.test:4443', protocol: 'https' },
+    });
+  });
+
+  it('returns a null forwarded address for direct requests', () => {
+    expect(
+      middleware.getParsedHeaders(
+        asReq({
+          url: 'http://localhost:3000',
+          headers: { host: 'localhost:8081', 'expo-platform': 'ios' },
+        })
+      )
+    ).toMatchObject({
+      hostname: 'localhost',
+      platform: 'ios',
+      protocol: undefined,
+      forwarded: null,
     });
   });
 });
@@ -198,7 +250,7 @@ describe('_getManifestResponseAsync', () => {
     middleware._resolveProjectSettingsAsync = jest.fn(
       async () =>
         ({
-          expoGoConfig: {},
+          expoGoConfig: { username: 'wat' },
           hostUri: 'https://localhost:8081',
           bundleUrl: 'https://localhost:8081/bundle.js',
           exp: {
@@ -264,7 +316,7 @@ describe('_getManifestResponseAsync', () => {
                 hostUri: 'https://localhost:8081',
                 slug: 'slug',
               },
-              expoGo: {},
+              expoGo: { username: 'wat' },
               scopeKey: expect.stringMatching(/@anonymous\/.*/),
             },
           });
@@ -276,6 +328,40 @@ describe('_getManifestResponseAsync', () => {
       }
     }
 
+    expect(partsSeen.has('manifest')).toBeTruthy();
+  });
+
+  it('returns an anon manifest when not signed in and running in a non-interactive shell', async () => {
+    // Simulate `expo start` running in CI / non-TTY: no cached credentials and
+    // no way to prompt the user. Previously this surfaced as HTTP 500 in Expo Go
+    // because the code-signing flow tried to prompt for login.
+    jest.mocked(getUserAsync).mockImplementation(async () => undefined);
+    jest.mocked(isInteractive).mockReturnValue(false);
+    jest.mocked(selectAsync).mockImplementation(() => {
+      throw new Error('selectAsync must not be called in non-interactive mode');
+    });
+
+    const middleware = createMiddleware();
+
+    const response = await middleware._getManifestResponseAsync({
+      responseContentType: ResponseContentType.MULTIPART_MIXED,
+      platform: 'android',
+      expectSignature: 'sig, keyid="expo-root", alg="rsa-v1_5-sha256"',
+      hostname: 'localhost',
+    });
+
+    expect(selectAsync).not.toHaveBeenCalled();
+
+    const partsSeen = new Set<string>();
+    const contentType = response.headers.get('content-type')!;
+    for await (const part of parseMultipart(response.body!, { contentType })) {
+      partsSeen.add(part.name);
+      if (part.name === 'manifest') {
+        expect(part.headers['expo-signature']).toBe(undefined);
+        const manifest = (await part.json()) as { extra: { scopeKey: string } };
+        expect(manifest.extra.scopeKey).toMatch(/@anonymous\/.*/);
+      }
+    }
     expect(partsSeen.has('manifest')).toBeTruthy();
   });
 
@@ -324,7 +410,7 @@ describe('_getManifestResponseAsync', () => {
                 hostUri: 'https://localhost:8081',
                 slug: 'slug',
               },
-              expoGo: {},
+              expoGo: { username: 'wat' },
               scopeKey: expect.stringMatching(/@anonymous\/.*/),
             },
           });
@@ -391,7 +477,7 @@ describe('_getManifestResponseAsync', () => {
                 hostUri: 'https://localhost:8081',
                 slug: 'slug',
               },
-              expoGo: {},
+              expoGo: { username: 'wat' },
               scopeKey: expect.stringMatching(/@anonymous\/.*/),
             },
           });
@@ -457,7 +543,7 @@ describe('_getManifestResponseAsync', () => {
                 projectId: 'projectId',
               },
               expoClient: expect.anything(),
-              expoGo: {},
+              expoGo: { username: 'wat' },
               scopeKey: expect.stringMatching(/@anonymous\/.*/),
             },
           });
@@ -505,7 +591,7 @@ describe('_getManifestResponseAsync', () => {
                 projectId: 'projectId',
               },
               expoClient: expect.anything(),
-              expoGo: {},
+              expoGo: { username: 'wat' },
               scopeKey: 'scope-key',
             },
           });
@@ -519,7 +605,10 @@ describe('_getManifestResponseAsync', () => {
     }
 
     expect([...partsSeen]).toEqual(['manifest', 'certificate_chain']);
-  });
+    // Increased timeout: RSA development certificate generation can exceed the default
+    // 5s under load; a timed-out test leaks its pending `toMatchSnapshot()` into the
+    // following test and corrupts the snapshot file.
+  }, 20_000);
 
   it('returns a code signed manifest with developers own key when requested when offline', async () => {
     vol.fromJSON({
@@ -574,7 +663,7 @@ describe('_getManifestResponseAsync', () => {
                 projectId: 'projectId',
               },
               expoClient: expect.anything(),
-              expoGo: {},
+              expoGo: { username: 'wat' },
               scopeKey: expect.stringMatching(/@anonymous\/.*/),
             },
           });
@@ -636,7 +725,7 @@ describe('_getManifestResponseAsync', () => {
                 projectId: 'projectId',
               },
               expoClient: expect.anything(),
-              expoGo: {},
+              expoGo: { username: 'wat' },
               scopeKey: 'scope-key',
             },
           });
@@ -650,7 +739,8 @@ describe('_getManifestResponseAsync', () => {
     }
 
     expect([...partsSeen]).toEqual(['manifest', 'certificate_chain']);
-  });
+    // Increased timeout: see the sibling expo-root chain test above.
+  }, 20_000);
 
   it('returns application/json when requested', async () => {
     const middleware = createMiddleware();
@@ -679,7 +769,7 @@ describe('_getManifestResponseAsync', () => {
           projectId: 'projectId',
         },
         expoClient: expect.anything(),
-        expoGo: {},
+        expoGo: { username: 'wat' },
         scopeKey: expect.stringMatching(/@anonymous\/.*/),
       },
     });
@@ -719,7 +809,7 @@ describe('_getManifestResponseAsync', () => {
           projectId: 'projectId',
         },
         expoClient: expect.anything(),
-        expoGo: {},
+        expoGo: { username: 'wat' },
         scopeKey: expect.stringMatching(/@anonymous\/.*/),
       },
     });

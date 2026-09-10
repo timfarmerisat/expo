@@ -1,8 +1,6 @@
-/* eslint-env jest */
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { runExportSideEffects } from './export-side-effects';
 import {
   prepareServers,
   RUNTIME_EXPO_SERVE,
@@ -11,6 +9,7 @@ import {
   setupServer,
 } from '../../utils/runtime';
 import { findProjectFiles, getHtml, getPageAndLoaderData } from '../utils';
+import { runExportSideEffects } from './export-side-effects';
 
 runExportSideEffects();
 
@@ -30,6 +29,7 @@ describe.each(
       env: {
         TEST_SECRET_RUNTIME_KEY: 'runtime-secret-value',
         TEST_THROW_ERROR: 'true',
+        E2E_ROUTER_SERVER_RENDERING: 'true',
       },
     },
   })
@@ -49,6 +49,7 @@ describe.each(
     expect(files).not.toContain('request.html');
     expect(files).not.toContain('response.html');
     expect(files).not.toContain('second.html');
+    expect(files).not.toContain('slow.html');
     expect(files).not.toContain('nested/index.html');
     expect(files).not.toContain('nullish/[value].html');
     expect(files).not.toContain('nullish/null.html');
@@ -66,9 +67,12 @@ describe.each(
     expect(files).toContain('_expo/loaders/request.js');
     expect(files).toContain('_expo/loaders/response.js');
     expect(files).toContain('_expo/loaders/second.js');
+    expect(files).toContain('_expo/loaders/slow.js');
     expect(files).toContain('_expo/loaders/nullish/[value].js');
     expect(files).toContain('_expo/loaders/posts/[postId].js');
     expect(files).toContain('_expo/loaders/(group)/index.js');
+    expect(files).toContain('_expo/loaders/static-helper.js');
+    expect(files).toContain('_expo/loaders/server-helper.js');
   });
 
   (server.isExpoStart ? it.skip : it)('routes.json has loader paths', async () => {
@@ -257,6 +261,13 @@ describe.each(
     expect(data).toEqual({ foo: 'bar' });
   });
 
+  it('defaults a headerless server loader to no-store', async () => {
+    const response = await server.fetchAsync('/_expo/loaders/index');
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+  });
+
   it('sets custom headers on response using `setResponseHeaders()`', async () => {
     const response = await server.fetchAsync('/_expo/loaders/response?setresponseheaders=true');
     expect(response.status).toBe(200);
@@ -282,4 +293,17 @@ describe.each(
     );
     expect(html.querySelector('meta[name="author"]')?.getAttribute('content')).toBe('Expo');
   });
+
+  it.each(getPageAndLoaderData('/server-helper'))(
+    'can access data from `createServerLoader()` for $url ($name)',
+    async ({ getData, url }) => {
+      const response = await server.fetchAsync(url);
+      expect(response.status).toBe(200);
+      const data = await getData(response);
+
+      expect(data.source).toBe('server-helper');
+      expect(new URL(data.url).pathname).toBe('/server-helper');
+      expect(data.method).toBe('GET');
+    }
+  );
 });

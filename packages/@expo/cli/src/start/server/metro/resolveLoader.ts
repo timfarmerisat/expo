@@ -1,5 +1,12 @@
 import type { RouteNode } from 'expo-router/build/Route';
-import { type RouteInfo, type RoutesManifest } from 'expo-server/private';
+import type { RouteInfo, RoutesManifest } from 'expo-server/private';
+
+/**
+ * An allowlist of loader `Response` headers that are written to the export
+ * manifest as `pageHeaders` rules during `expo export`. In development, they
+ * are forwarded on the loader response, matching static exports.
+ */
+export const SSG_LOADER_HEADER_ALLOWLIST = ['Cache-Control'];
 
 /**
  * Unified route information needed for loader execution
@@ -89,7 +96,7 @@ function extractParams(
   const match = route.namedRegex.exec(pathname);
   if (match?.groups) {
     for (const [key, value] of Object.entries(match.groups)) {
-      const namedKey = route.routeKeys[key];
+      const namedKey = route.routeKeys[key]!;
       params[namedKey] = value;
     }
   }

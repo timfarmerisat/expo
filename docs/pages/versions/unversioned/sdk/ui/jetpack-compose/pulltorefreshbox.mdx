@@ -3,13 +3,25 @@ title: PullToRefreshBox
 description: A Jetpack Compose PullToRefreshBox component for pull-to-refresh interactions.
 sourceCodeUrl: 'https://github.com/expo/expo/tree/main/packages/expo-ui'
 packageName: '@expo/ui'
-platforms: ['android']
+platforms: ['android', 'expo-go']
 ---
 
 import APISection from '~/components/plugins/APISection';
 import { APIInstallSection } from '~/components/plugins/InstallSection';
+import { ComponentExample } from '~/ui/components/ComponentExample';
+import { ContentSpotlight } from '~/ui/components/ContentSpotlight';
 
-A pull-to-refresh container that wraps scrollable content and provides a standard refresh indicator when pulled. See the [official Jetpack Compose documentation](https://developer.android.com/develop/ui/compose/layouts/adaptive/support-different-screen-sizes) for more information.
+> **info** For a cross-platform list with pull-to-refresh, see [`List`](../universal/list) — built on top of `PullToRefreshBox` on Android.
+
+Expo UI PullToRefreshBox matches the official Jetpack Compose [PullToRefreshBox](<https://developer.android.com/reference/kotlin/androidx/compose/material3/pulltorefresh/package-summary#PullToRefreshBox(kotlin.Boolean,kotlin.Function0,androidx.compose.ui.Modifier,androidx.compose.material3.pulltorefresh.PullToRefreshState,androidx.compose.ui.Alignment,kotlin.Function1,kotlin.Function1)>) API. It wraps scrollable content and shows a refresh indicator when pulled.
+
+<ContentSpotlight
+  variant="component"
+  aspect="landscape"
+  src="/static/images/expo-ui/pulltorefreshbox/android-light.webp"
+  darkSrc="/static/images/expo-ui/pulltorefreshbox/android-dark.webp"
+  alt="PullToRefreshBox showing the Material 3 loading indicator above a list"
+/>
 
 ## Installation
 
@@ -19,9 +31,23 @@ A pull-to-refresh container that wraps scrollable content and provides a standar
 
 ### Basic pull to refresh
 
-```tsx BasicPullToRefresh.tsx
+Wrap scrollable content in a `PullToRefreshBox` to add pull-to-refresh behavior.
+
+<ComponentExample
+  title="BasicPullToRefresh.tsx"
+  src="/static/images/expo-ui/examples/pulltorefresh-basic-android-light.webp"
+  darkSrc="/static/images/expo-ui/examples/pulltorefresh-basic-android-dark.webp"
+  alt="A five item list inside a pull to refresh container, at rest">
+
+```tsx
 import { useState, useCallback } from 'react';
-import { Host, PullToRefreshBox, LazyColumn, ListItem } from '@expo/ui/jetpack-compose';
+import {
+  Host,
+  PullToRefreshBox,
+  LazyColumn,
+  ListItem,
+  Text,
+} from '@expo/ui/jetpack-compose';
 
 export default function BasicPullToRefresh() {
   const [refreshing, setRefreshing] = useState(false);
@@ -35,13 +61,35 @@ export default function BasicPullToRefresh() {
 
   return (
     <Host style={{ height: 400 }}>
-      <PullToRefreshBox isRefreshing={refreshing} onRefresh={onRefresh}>
+      <PullToRefreshBox
+        isRefreshing={refreshing}
+        onRefresh={onRefresh}>
         <LazyColumn>
-          <ListItem headline="Item 1" />
-          <ListItem headline="Item 2" />
-          <ListItem headline="Item 3" />
-          <ListItem headline="Item 4" />
-          <ListItem headline="Item 5" />
+          <ListItem>
+            <ListItem.HeadlineContent>
+              <Text>Item 1</Text>
+            </ListItem.HeadlineContent>
+          </ListItem>
+          <ListItem>
+            <ListItem.HeadlineContent>
+              <Text>Item 2</Text>
+            </ListItem.HeadlineContent>
+          </ListItem>
+          <ListItem>
+            <ListItem.HeadlineContent>
+              <Text>Item 3</Text>
+            </ListItem.HeadlineContent>
+          </ListItem>
+          <ListItem>
+            <ListItem.HeadlineContent>
+              <Text>Item 4</Text>
+            </ListItem.HeadlineContent>
+          </ListItem>
+          <ListItem>
+            <ListItem.HeadlineContent>
+              <Text>Item 5</Text>
+            </ListItem.HeadlineContent>
+          </ListItem>
         </LazyColumn>
       </PullToRefreshBox>
     </Host>
@@ -49,10 +97,76 @@ export default function BasicPullToRefresh() {
 }
 ```
 
+</ComponentExample>
+
+### Custom indicator colors
+
+Use the `indicator` prop to customize the spinner and container colors.
+
+<ComponentExample
+  title="CustomIndicatorColors.tsx"
+  src="/static/images/expo-ui/examples/pulltorefresh-colors-android-light.webp"
+  darkSrc="/static/images/expo-ui/examples/pulltorefresh-colors-android-dark.webp"
+  alt="A three item list inside a pull to refresh container with a custom indicator, at rest">
+
+```tsx
+import { useState, useCallback } from 'react';
+import {
+  Host,
+  PullToRefreshBox,
+  LazyColumn,
+  ListItem,
+  Text,
+} from '@expo/ui/jetpack-compose';
+
+export default function CustomIndicatorColors() {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 2000);
+  }, []);
+
+  return (
+    <Host style={{ height: 400 }}>
+      <PullToRefreshBox
+        isRefreshing={refreshing}
+        onRefresh={onRefresh}
+        indicator={{ color: '#6200EE', containerColor: '#F5F5F5' }}>
+        <LazyColumn>
+          <ListItem>
+            <ListItem.HeadlineContent>
+              <Text>Item 1</Text>
+            </ListItem.HeadlineContent>
+          </ListItem>
+          <ListItem>
+            <ListItem.HeadlineContent>
+              <Text>Item 2</Text>
+            </ListItem.HeadlineContent>
+          </ListItem>
+          <ListItem>
+            <ListItem.HeadlineContent>
+              <Text>Item 3</Text>
+            </ListItem.HeadlineContent>
+          </ListItem>
+        </LazyColumn>
+      </PullToRefreshBox>
+    </Host>
+  );
+}
+```
+
+</ComponentExample>
+
 ## API
 
 ```tsx
 import { PullToRefreshBox } from '@expo/ui/jetpack-compose';
 ```
 
-<APISection packageName="expo-ui/jetpack-compose/pulltorefreshbox" apiName="PullToRefreshBox" />
+<APISection
+  packageName="expo-ui/jetpack-compose/pulltorefreshbox"
+  apiName="PullToRefreshBox"
+/>

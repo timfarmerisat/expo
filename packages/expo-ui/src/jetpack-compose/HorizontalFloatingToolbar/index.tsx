@@ -1,14 +1,43 @@
 import { requireNativeView } from 'expo';
+import type { ColorValue } from 'react-native';
 
-import { ExpoModifier } from '../../types';
+import type { ExpoModifier } from '../../types';
 import { createViewModifierEventListener } from '../modifiers/utils';
 
-export type HorizontalFloatingToolbarProps = {
+export type HorizontalFloatingToolbarColors = {
+  /**
+   * Color of the toolbar container (background).
+   */
+  toolbarContainerColor?: ColorValue;
+
+  /**
+   *  Color of the toolbar content (icons/text).
+   */
+  toolbarContentColor?: ColorValue;
+
+  /**
+   * Color of the floating action button container (background).
+   */
+  fabContainerColor?: ColorValue;
+
+  /**
+   *  Color of the floating action button content (icon).
+   */
+  fabContentColor?: ColorValue;
+};
+
+export interface HorizontalFloatingToolbarProps {
   /**
    * The variant of the horizontal floating toolbar.
    * @default 'standard'
    */
   variant?: 'standard' | 'vibrant';
+
+  /**
+   * Per-slot color overrides. Any field set here replaces the corresponding
+   * color from the variant default; unset fields fall back to the variant.
+   */
+  colors?: HorizontalFloatingToolbarColors;
 
   /**
    * The children of the component.
@@ -19,9 +48,9 @@ export type HorizontalFloatingToolbarProps = {
    * Modifiers for the component.
    */
   modifiers?: ExpoModifier[];
-};
+}
 
-export type HorizontalFloatingToolbarFloatingActionButtonProps = {
+export interface HorizontalFloatingToolbarFloatingActionButtonProps {
   /**
    * A callback that is called when the button is pressed.
    */
@@ -31,7 +60,7 @@ export type HorizontalFloatingToolbarFloatingActionButtonProps = {
    * The children of the component.
    */
   children: React.ReactNode;
-};
+}
 
 type NativeHorizontalFloatingToolbarProps = HorizontalFloatingToolbarProps & {};
 

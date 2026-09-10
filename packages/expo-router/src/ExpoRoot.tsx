@@ -1,32 +1,30 @@
 'use client';
 
-import {
-  LinkingOptions,
-  NavigationAction,
-  StackRouter,
-  useNavigationBuilder,
-} from '@react-navigation/native';
-import React, { type PropsWithChildren, Fragment, type ComponentType, useMemo } from 'react';
-import { StatusBar, useColorScheme, Platform } from 'react-native';
+import { type PropsWithChildren, Fragment, type ComponentType, useEffect, useMemo } from 'react';
+import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { INTERNAL_SLOT_NAME, NOT_FOUND_ROUTE_NAME, SITEMAP_ROUTE_NAME } from './constants';
 import { useDomComponentNavigation } from './domComponents/useDomComponentNavigation';
 import { NavigationContainer as UpstreamNavigationContainer } from './fork/NavigationContainer';
-import { ExpoLinkingOptions } from './getLinkingConfig';
-import { store, useStore } from './global-state/router-store';
-import { ServerContext, ServerContextType } from './global-state/serverLocationContext';
-import { StoreContext } from './global-state/storeContext';
+import type { ExpoLinkingOptions } from './getLinkingConfig';
+import { navigationRef } from './global-state/navigationRef';
+import { RemovalPreventionProvider } from './global-state/removalPrevention';
+import { RouterConfigContext } from './global-state/routerConfigContext';
+import { RoutingQueueProvider } from './global-state/routingQueueContext';
+import { useRouterConfig } from './global-state/useStore';
 import { shouldAppendNotFound, shouldAppendSitemap } from './global-state/utils';
 import { LinkPreviewContextProvider } from './link/preview/LinkPreviewContext';
 import { Screen } from './primitives';
+import type { LinkingOptions } from './react-navigation/native';
+import { StackRouter, useNavigationBuilder } from './react-navigation/native';
 import { initScreensFeatureFlags } from './screensFeatureFlags';
-import { RequireContext } from './types';
-import { canOverrideStatusBarBehavior } from './utils/statusbar';
+import type { RequireContext } from './types';
+import { maybeHideSplashScreen } from './utils/splash';
 import { parseUrlUsingCustomBase } from './utils/url';
+import { RootUnmatched } from './views/RootUnmatched';
 import { Sitemap } from './views/Sitemap';
 import * as SplashScreen from './views/Splash';
-import { Unmatched } from './views/Unmatched';
 
 export type ExpoRootProps = {
   context: RequireContext;
@@ -52,10 +50,6 @@ const INITIAL_METRICS =
       }
     : undefined;
 
-const documentTitle = {
-  enabled: false,
-};
-
 /**
  * @hidden
  */
@@ -75,8 +69,6 @@ export function ExpoRoot({ wrapper: ParentWrapper = Fragment, ...props }: ExpoRo
               <SafeAreaProvider
                 // SSR support
                 initialMetrics={INITIAL_METRICS}>
-                {/* Users can override this by adding another StatusBar element anywhere higher in the component tree. */}
-                {canOverrideStatusBarBehavior && <AutoStatusBar />}
                 {children}
               </SafeAreaProvider>
             </LinkPreviewContextProvider>
@@ -86,11 +78,11 @@ export function ExpoRoot({ wrapper: ParentWrapper = Fragment, ...props }: ExpoRo
     [ParentWrapper]
   );
 
-  return <ContextNavigator {...props} wrapper={wrapper} />;
-}
-
-function AutoStatusBar() {
-  return <StatusBar barStyle={useColorScheme() === 'light' ? 'dark-content' : 'light-content'} />;
+  return (
+    <RoutingQueueProvider>
+      <ContextNavigator {...props} wrapper={wrapper} />
+    </RoutingQueueProvider>
+  );
 }
 
 const initialUrl =
@@ -107,43 +99,26 @@ function ContextNavigator({
   // location and linking.getInitialURL are both used to initialize the router state
   //  - location is used on web and during static rendering
   //  - linking.getInitialURL is used on native
-  const serverContext = useMemo(() => {
-    let contextType: ServerContextType = {};
+  const serverUrl = useMemo(() => {
+    const url =
+      typeof initialLocation === 'string'
+        ? parseUrlUsingCustomBase(initialLocation)
+        : initialLocation;
 
-    if (initialLocation instanceof URL) {
-      contextType = {
-        location: {
-          pathname: initialLocation.pathname + initialLocation.hash,
-          search: initialLocation.search,
-        },
-      };
-    } else if (typeof initialLocation === 'string') {
-      // The initial location is a string, so we need to parse it into a URL.
-      const url = parseUrlUsingCustomBase(initialLocation);
-      contextType = {
-        location: {
-          pathname: url.pathname,
-          search: url.search,
-        },
-      };
+    if (url && url instanceof URL) {
+      return `${url.pathname}${url.search}${url.hash}`;
     }
 
-    return contextType;
+    return undefined;
   }, []);
 
-  /*
-   * The serverUrl is an initial URL used in server rendering environments.
-   * e.g Static renders, units tests, etc
-   */
-  const serverUrl = serverContext.location
-    ? `${serverContext.location.pathname}${serverContext.location.search}`
-    : undefined;
-
-  const store = useStore(context, linking, serverUrl);
+  const { routerConfig, rootComponent } = useRouterConfig(context, linking, serverUrl);
+  const { linking: linkingConfig, routeNode } = routerConfig;
 
   useDomComponentNavigation();
 
-  if (store.shouldShowTutorial()) {
+  // TODO(@ubax): Revisit onboarding once route creation is React-owned.
+  if (process.env.NODE_ENV === 'development' && !routeNode) {
     SplashScreen.hideAsync();
     if (process.env.NODE_ENV === 'development') {
       const Tutorial = require('./onboard/Tutorial').Tutorial;
@@ -159,84 +134,38 @@ function ContextNavigator({
   }
 
   return (
-    <StoreContext.Provider value={store}>
-      <UpstreamNavigationContainer
-        ref={store.navigationRef}
-        initialState={store.state}
-        linking={store.linking as LinkingOptions<any>}
-        onUnhandledAction={onUnhandledAction}
-        onStateChange={store.onStateChange}
-        documentTitle={documentTitle}
-        onReady={store.onReady}>
-        <ServerContext.Provider value={serverContext}>
+    <RouterConfigContext.Provider value={routerConfig}>
+      <RemovalPreventionProvider>
+        <UpstreamNavigationContainer
+          ref={navigationRef}
+          linking={linkingConfig as LinkingOptions<any>}>
           <WrapperComponent>
-            <Content />
+            <Content rootComponent={rootComponent} />
           </WrapperComponent>
-        </ServerContext.Provider>
-      </UpstreamNavigationContainer>
-    </StoreContext.Provider>
+        </UpstreamNavigationContainer>
+      </RemovalPreventionProvider>
+    </RouterConfigContext.Provider>
   );
 }
 
-function Content() {
-  const children = [<Screen name={INTERNAL_SLOT_NAME} component={store.rootComponent} />];
+function Content({ rootComponent }: { rootComponent: ComponentType<any> }) {
+  const children = [<Screen key="SLOT" name={INTERNAL_SLOT_NAME} component={rootComponent} />];
   if (shouldAppendNotFound()) {
-    children.push(<Screen name={NOT_FOUND_ROUTE_NAME} component={Unmatched} />);
+    children.push(<Screen key="NOT-FOUND" name={NOT_FOUND_ROUTE_NAME} component={RootUnmatched} />);
   }
   if (shouldAppendSitemap()) {
-    children.push(<Screen name={SITEMAP_ROUTE_NAME} component={Sitemap} />);
+    children.push(<Screen key="SITEMAP" name={SITEMAP_ROUTE_NAME} component={Sitemap} />);
   }
   const { state, descriptors, NavigationContent } = useNavigationBuilder(StackRouter, {
     children,
     id: INTERNAL_SLOT_NAME,
   });
 
+  useEffect(() => {
+    maybeHideSplashScreen();
+  }, []);
+
   return (
-    <NavigationContent>{descriptors[state.routes[state.index].key].render()}</NavigationContent>
+    <NavigationContent>{descriptors[state.routes[state.index]!.key]!.render()}</NavigationContent>
   );
-}
-
-let onUnhandledAction: (action: NavigationAction) => void;
-
-if (process.env.NODE_ENV !== 'production') {
-  onUnhandledAction = (action: NavigationAction) => {
-    const payload: Record<string, any> | undefined = action.payload;
-
-    let message = `The action '${action.type}'${
-      payload ? ` with payload ${JSON.stringify(action.payload)}` : ''
-    } was not handled by any navigator.`;
-
-    switch (action.type) {
-      case 'NAVIGATE':
-      case 'PUSH':
-      case 'REPLACE':
-      case 'JUMP_TO':
-        if (payload?.name) {
-          message += `\n\nDo you have a route named '${payload.name}'?`;
-        } else {
-          message += `\n\nYou need to pass the name of the screen to navigate to. This may be a bug.`;
-        }
-
-        break;
-      case 'GO_BACK':
-      case 'POP':
-      case 'POP_TO_TOP':
-        message += `\n\nIs there any screen to go back to?`;
-        break;
-      case 'OPEN_DRAWER':
-      case 'CLOSE_DRAWER':
-      case 'TOGGLE_DRAWER':
-        message += `\n\nIs your screen inside a Drawer navigator?`;
-        break;
-    }
-
-    message += `\n\nThis is a development-only warning and won't be shown in production.`;
-
-    if (process.env.NODE_ENV === 'test') {
-      throw new Error(message);
-    }
-    console.error(message);
-  };
-} else {
-  onUnhandledAction = function () {};
 }

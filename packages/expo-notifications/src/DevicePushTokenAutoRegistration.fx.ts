@@ -1,14 +1,22 @@
 import 'abort-controller/polyfill';
-import { UnavailabilityError } from 'expo-modules-core';
+import { isRunningInExpoGo, Platform, UnavailabilityError } from 'expo';
 
 import ServerRegistrationModule from './ServerRegistrationModule';
 import { addPushTokenListener } from './TokenEmitter';
-import { DevicePushToken } from './Tokens.types';
+import type { DevicePushToken } from './Tokens.types';
 import { getDevicePushTokenAsync } from './getDevicePushTokenAsync';
-import { updateDevicePushTokenAsync as updateDevicePushTokenAsyncWithSignal } from './utils/updateDevicePushTokenAsync';
+import {
+  updateDevicePushTokenAsync as updateDevicePushTokenAsyncWithSignal,
+  hasDeviceTokenChangedAsync,
+} from './utils/updateDevicePushTokenAsync';
 
 let lastAbortController: AbortController | null = null;
 async function updatePushTokenAsync(token: DevicePushToken) {
+  const changed = await hasDeviceTokenChangedAsync(token);
+  if (!changed) {
+    return;
+  }
+
   // Abort current update process
   lastAbortController?.abort();
   lastAbortController = new AbortController();
@@ -38,9 +46,19 @@ export async function setAutoServerRegistrationEnabledAsync(enabled: boolean) {
     throw new UnavailabilityError('ServerRegistrationModule', 'setRegistrationInfoAsync');
   }
 
-  await ServerRegistrationModule.setRegistrationInfoAsync(
-    enabled ? JSON.stringify({ isEnabled: enabled }) : null
-  );
+  if (!enabled) {
+    await ServerRegistrationModule.setRegistrationInfoAsync(null);
+  } else {
+    let existing: Record<string, unknown> = {};
+    try {
+      const info = await ServerRegistrationModule.getRegistrationInfoAsync?.();
+      if (info) {
+        existing = JSON.parse(info);
+      }
+    } catch {}
+    existing.isEnabled = true;
+    await ServerRegistrationModule.setRegistrationInfoAsync(JSON.stringify(existing));
+  }
 }
 
 // note(Chmiela): This function is exported only for testing purposes.
@@ -80,7 +98,12 @@ export async function __handlePersistedRegistrationInfoAsync(
   }
 }
 
-if (ServerRegistrationModule.getRegistrationInfoAsync) {
+if (isRunningInExpoGo() && Platform.OS === 'android') {
+  // Registering the module-scope push token listener would throw and make the import fatal.
+  console.warn(
+    '[expo-notifications] Push notifications (remote notifications) are unavailable in Expo Go on Android since SDK 53. Local notifications remain available. Use a development build for push notifications: https://docs.expo.dev/develop/development-builds/introduction/'
+  );
+} else if (ServerRegistrationModule.getRegistrationInfoAsync) {
   // A global scope (to get all the updates) device push token
   // subscription, never cleared.
   addPushTokenListener(async (token) => {

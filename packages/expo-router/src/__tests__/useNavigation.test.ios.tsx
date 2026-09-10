@@ -1,7 +1,5 @@
-import { NavigationProp } from '@react-navigation/native';
-import React from 'react';
-
 import Stack from '../layouts/Stack';
+import type { NavigationProp } from '../react-navigation/native';
 import { renderRouter } from '../testing-library';
 import { useNavigation } from '../useNavigation';
 
@@ -161,6 +159,6 @@ it('works with hoisted routes and relative hrefs', () => {
   );
 
   expect(navigation).toBeDefined();
-  // Moving up one level should resolve to /(a) because this the closest parent navigator
+  // Moving up one level should resolve to /(a) because this is the closest parent navigator
   expect(navigation?.getId()).toBe('/(a)');
 });

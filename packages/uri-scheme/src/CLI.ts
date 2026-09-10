@@ -5,13 +5,22 @@ import { resolve } from 'path';
 
 import * as Android from './Android';
 import * as Ios from './Ios';
-import { CommandError, Options } from './Options';
+import type { Options } from './Options';
+import { CommandError } from './Options';
 import * as URIScheme from './URIScheme';
-import shouldUpdate from './update';
+import shouldUpdate, { PACKAGE_NAME } from './update';
 
-const packageJson = () => require('../package.json');
+const packageJson = () => {
+  try {
+    return require('uri-scheme/package.json');
+  } catch {
+    return null;
+  }
+};
 
-export const program = new Command(packageJson().name).version(packageJson().version);
+export const program = new Command(packageJson()?.name ?? PACKAGE_NAME).version(
+  packageJson()?.version ?? '0.0.0'
+);
 
 function buildCommand(name: string, examples: string[] = []): Command {
   return program
@@ -177,7 +186,9 @@ async function commandDidThrowAsync(reason: any) {
   console.log();
   if (reason.command) {
     console.log(
-      chalk.red(`\u203A ${chalk.bold(`npx ${packageJson().name} ${reason.command}`)} has failed.`)
+      chalk.red(
+        `\u203A ${chalk.bold(`npx ${packageJson()?.name ?? PACKAGE_NAME} ${reason.command}`)} has failed.`
+      )
     );
     console.log();
   }

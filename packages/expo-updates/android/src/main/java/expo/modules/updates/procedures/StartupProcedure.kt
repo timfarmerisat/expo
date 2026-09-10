@@ -3,7 +3,8 @@ package expo.modules.updates.procedures
 import android.content.Context
 import com.facebook.react.devsupport.interfaces.DevSupportManager
 import expo.modules.updates.UpdatesConfiguration
-import expo.modules.updates.db.DatabaseHolder
+import expo.modules.updates.db.BuildData
+import expo.modules.updates.db.UpdatesDatabase
 import expo.modules.updates.db.entity.AssetEntity
 import expo.modules.updates.db.entity.UpdateEntity
 import expo.modules.updates.errorrecovery.ErrorRecovery
@@ -21,6 +22,7 @@ import expo.modules.updates.manifest.Update
 import expo.modules.updates.selectionpolicy.SelectionPolicy
 import expo.modules.updates.statemachine.UpdatesStateEvent
 import expo.modules.updates.statemachine.UpdatesStateValue
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -29,7 +31,7 @@ import java.io.File
 class StartupProcedure(
   private val context: Context,
   private val updatesConfiguration: UpdatesConfiguration,
-  private val databaseHolder: DatabaseHolder,
+  private val database: UpdatesDatabase,
   private val updatesDirectory: File,
   private val fileDownloader: FileDownloader,
   private val selectionPolicy: SelectionPolicy,
@@ -71,7 +73,7 @@ class StartupProcedure(
   private val loaderTask = LoaderTask(
     context,
     updatesConfiguration,
-    databaseHolder,
+    database,
     updatesDirectory,
     fileDownloader,
     selectionPolicy,
@@ -193,7 +195,7 @@ class StartupProcedure(
             logger.info("UpdatesController onBackgroundUpdateFinished: No update available", UpdatesErrorCode.NoUpdatesAvailable)
             // TODO: handle rollbacks properly, but this works for now
             if (procedureContext.getCurrentState() == UpdatesStateValue.Downloading) {
-              procedureContext.processStateEvent(UpdatesStateEvent.DownloadComplete())
+              procedureContext.processStateEvent(UpdatesStateEvent.DownloadCompleteUnavailable())
             }
           }
         }
@@ -206,6 +208,9 @@ class StartupProcedure(
   override suspend fun run(procedureContext: ProcedureContext) {
     this.procedureContext = procedureContext
     procedureContext.processStateEvent(UpdatesStateEvent.StartStartup())
+    if (!updatesConfiguration.hasUpdatesOverride) {
+      BuildData.ensureBuildDataIsConsistent(updatesConfiguration, database)
+    }
     initializeErrorRecovery()
     loaderTask.start()
   }
@@ -242,7 +247,7 @@ class StartupProcedure(
           return
         }
         remoteLoadStatus = ErrorRecoveryDelegate.RemoteLoadStatus.NEW_UPDATE_LOADING
-        val remoteLoader = RemoteLoader(context, updatesConfiguration, logger, databaseHolder.database, fileDownloader, updatesDirectory, launchedUpdate)
+        val remoteLoader = RemoteLoader(context, updatesConfiguration, logger, database, fileDownloader, updatesDirectory, launchedUpdate, procedureScope)
         procedureScope.launch {
           try {
             val loaderResult = remoteLoader.load { updateResponse ->
@@ -267,6 +272,8 @@ class StartupProcedure(
                 ErrorRecoveryDelegate.RemoteLoadStatus.IDLE
               }
             )
+          } catch (e: CancellationException) {
+            throw e
           } catch (e: Exception) {
             logger.error("UpdatesController loadRemoteUpdate onFailure", e, UpdatesErrorCode.UpdateFailedToLoad, launchedUpdate?.loggingId, null)
             setRemoteLoadStatus(ErrorRecoveryDelegate.RemoteLoadStatus.IDLE)
@@ -287,7 +294,7 @@ class StartupProcedure(
         }
         procedureScope.launch {
           val launchedUpdate = launchedUpdate ?: return@launch
-          databaseHolder.withDatabase { it.updateDao().incrementFailedLaunchCount(launchedUpdate) }
+          database.updateDao().incrementFailedLaunchCount(launchedUpdate)
         }
       }
 
@@ -297,7 +304,7 @@ class StartupProcedure(
         }
         procedureScope.launch {
           val launchedUpdate = launchedUpdate ?: return@launch
-          databaseHolder.withDatabase { it.updateDao().incrementSuccessfulLaunchCount(launchedUpdate) }
+          database.updateDao().incrementSuccessfulLaunchCount(launchedUpdate)
         }
       }
 

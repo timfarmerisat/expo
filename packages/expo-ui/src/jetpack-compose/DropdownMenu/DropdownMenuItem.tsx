@@ -1,7 +1,7 @@
 import { requireNativeView } from 'expo';
-import { ColorValue } from 'react-native';
+import type { ColorValue } from 'react-native';
 
-import { ModifierConfig, ViewEvent } from '../../types';
+import type { ModifierConfig, ViewEvent } from '../../types';
 import { createViewModifierEventListener } from '../modifiers/utils';
 
 type SlotNativeViewProps = {
@@ -22,18 +22,16 @@ export type DropdownMenuItemElementColors = {
   textColor?: ColorValue;
   /** Color of the text when the menu item is disabled. */
   disabledTextColor?: ColorValue;
-  // TODO: At the moment IconView's tint color defaults to Color.Unspecified instead of LocalContentColor.current.
-  // Thus the color override will not work for icons. At the moment icon color can only be set directly in IconView.
-  // leadingIconColor?: ColorValue;
-  // trailingIconColor?: ColorValue;
-  // disabledLeadingIconColor?: ColorValue;
-  // disabledTrailingIconColor?: ColorValue;
+  leadingIconColor?: ColorValue;
+  trailingIconColor?: ColorValue;
+  disabledLeadingIconColor?: ColorValue;
+  disabledTrailingIconColor?: ColorValue;
 };
 
 /**
  * Props of the `DropdownMenuItem` component.
  */
-export type DropdownMenuItemProps = {
+export interface DropdownMenuItemProps {
   /**
    * Whether the menu item is enabled.
    * @default true
@@ -55,7 +53,7 @@ export type DropdownMenuItemProps = {
    * Slot children for text, leading/trailing icons.
    */
   children?: React.ReactNode;
-};
+}
 
 type NativeDropdownMenuItemProps = Omit<DropdownMenuItemProps, 'onClick' | 'children'> &
   ViewEvent<'onItemPressed', void> & { children?: React.ReactNode };
@@ -84,12 +82,6 @@ function TrailingIcon(props: { children: React.ReactNode }) {
 }
 
 /**
- * A dropdown menu item component that wraps Compose's `DropdownMenuItem`.
- * Should be used inside `DropdownMenu.Items`.
- *
- * @platform android
- */
-/**
  * A text slot for `DropdownMenuItem`.
  * Wrap text content to display as the menu item label.
  *
@@ -101,7 +93,7 @@ function TextSlot(props: { children: React.ReactNode }) {
 
 /**
  * A dropdown menu item component that wraps Compose's `DropdownMenuItem`.
- * Should be used inside `ContextMenu.Items`.
+ * Should be used inside `DropdownMenu.Items` or `ExposedDropdownMenu`.
  *
  * @platform android
  */

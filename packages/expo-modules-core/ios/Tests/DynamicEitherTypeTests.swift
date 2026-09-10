@@ -5,6 +5,7 @@ import Testing
 @testable import ExpoModulesCore
 
 @Suite("DynamicEitherType")
+@JavaScriptActor
 struct DynamicEitherTypeTests {
   let appContext: AppContext
   var runtime: ExpoRuntime {
@@ -36,7 +37,7 @@ struct DynamicEitherTypeTests {
     let either1 = try (~Either<Int, String>.self).cast(jsValue: .number(123), appContext: appContext) as! Either<Int, String>
     #expect(try either1.as(Int.self) == 123)
 
-    let either2 = try (~Either<Int, String>.self).cast(jsValue: .string("expo", runtime: runtime), appContext: appContext) as! Either<Int, String>
+    let either2 = try (~Either<Int, String>.self).cast(jsValue: JavaScriptValue(runtime, "expo"), appContext: appContext) as! Either<Int, String>
     #expect(try either2.as(String.self) == "expo")
   }
 
@@ -118,6 +119,29 @@ struct DynamicEitherTypeTests {
     #expect(either.is(TestSharedObject.self) == true)
     #expect(either.is(String.self) == false)
     #expect(try either.as(TestSharedObject.self).sharedObjectId == nativeObject.sharedObjectId)
+  }
+
+  @Test
+  func `supports shared objects passed as a JS value`() throws {
+    class TestSharedObject: SharedObject {}
+
+    let nativeObject = TestSharedObject()
+    let jsObject = appContext.sharedObjectRegistry.createSharedJavaScriptObject(runtime: try runtime, nativeObject: nativeObject)
+
+    let either = try (~Either<URL, TestSharedObject>.self)
+      .cast(jsValue: jsObject.asValue(), appContext: appContext) as! Either<URL, TestSharedObject>
+
+    #expect(either.is(TestSharedObject.self) == true)
+    #expect(either.is(URL.self) == false)
+    #expect(try either.as(TestSharedObject.self).sharedObjectId == nativeObject.sharedObjectId)
+  }
+
+  @Test
+  func `does not crash resolving an Either when a JS object holds a function`() throws {
+    let objectWithFunction = try runtime.eval("({ cb: () => {} })")
+    #expect(throws: NeitherTypeException.self) {
+      try (~Either<URL, Int>.self).cast(jsValue: objectWithFunction, appContext: appContext)
+    }
   }
 
   @Test

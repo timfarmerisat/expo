@@ -13,6 +13,7 @@ import {
   getCodeBlockDataFromChildren,
 } from '~/common/code-utilities';
 import { useCodeBlockSettingsContext } from '~/providers/CodeBlockSettingsProvider';
+import { usePageApiVersion } from '~/providers/page-api-version';
 import { Snippet } from '~/ui/components/Snippet/Snippet';
 import { SnippetContent } from '~/ui/components/Snippet/SnippetContent';
 import { SnippetExpandOverlay } from '~/ui/components/Snippet/SnippetExpandOverlay';
@@ -26,6 +27,30 @@ import { TextTheme } from '~/ui/components/Text/types';
 const { default: testTippy } = tippy;
 const tippyFunc = testTippy ?? tippy;
 
+// Builds a tooltip DOM tree from the annotation's data-tippy-content attribute.
+// Recognizes `code` -> <code> and **bold** -> <strong>.
+function buildTooltipContent(raw: string): HTMLSpanElement {
+  const wrapper = document.createElement('span');
+  const parts = raw.split(/(`[^`]+`|\*\*[^*]+\*\*)/);
+  for (const part of parts) {
+    if (!part) {
+      continue;
+    }
+    if (part.startsWith('`') && part.endsWith('`')) {
+      const code = document.createElement('code');
+      code.textContent = part.slice(1, -1);
+      wrapper.appendChild(code);
+    } else if (part.startsWith('**') && part.endsWith('**')) {
+      const strong = document.createElement('strong');
+      strong.textContent = part.slice(2, -2);
+      wrapper.appendChild(strong);
+    } else {
+      wrapper.appendChild(document.createTextNode(part));
+    }
+  }
+  return wrapper;
+}
+
 const attributes = {
   'data-text': true,
 };
@@ -38,6 +63,7 @@ type CodeProps = PropsWithChildren<{
 export function Code({ className, children, title }: CodeProps) {
   const contentRef = useRef<HTMLPreElement>(null);
   const { preferredTheme, wordWrap } = useCodeBlockSettingsContext();
+  const { version } = usePageApiVersion();
 
   const {
     language,
@@ -53,7 +79,8 @@ export function Code({ className, children, title }: CodeProps) {
   const [didMount, setDidMount] = useState(false);
   const collapseHeight = getCollapseHeight(params);
   const showExpand = !isExpanded && blockHeight && collapseBound && blockHeight > collapseBound;
-  const highlightedHtml = getCodeData(value, language);
+  const resolvedVersion = params?.sdkVersion ? `v${params.sdkVersion}` : version;
+  const highlightedHtml = getCodeData(value, language, resolvedVersion);
 
   useEffect(() => {
     if (contentRef?.current?.clientHeight) {
@@ -67,7 +94,11 @@ export function Code({ className, children, title }: CodeProps) {
 
   useEffect(() => {
     tippyFunc('.code-annotation.with-tooltip', {
-      allowHTML: true,
+      allowHTML: false,
+      ignoreAttributes: true,
+      aria: { content: 'auto', expanded: false },
+      content: (reference: Element) =>
+        buildTooltipContent(reference.getAttribute('data-tippy-content') ?? ''),
       theme: 'expo',
       placement: 'top',
       arrow: roundArrow,
@@ -77,7 +108,11 @@ export function Code({ className, children, title }: CodeProps) {
     });
 
     tippyFunc('.tutorial-code-annotation.with-tooltip', {
-      allowHTML: true,
+      allowHTML: false,
+      ignoreAttributes: true,
+      aria: { content: 'auto', expanded: false },
+      content: (reference: Element) =>
+        buildTooltipContent(reference.getAttribute('data-tippy-content') ?? ''),
       theme: 'expo',
       placement: 'top',
       arrow: roundArrow,
@@ -92,15 +127,17 @@ export function Code({ className, children, title }: CodeProps) {
     setCollapseBound(undefined);
   }
 
+  const forceWordWrap = params?.wrap === 'true';
   const commonClasses = mergeClasses(
-    wordWrap && 'break-words! whitespace-pre-wrap!',
-    showExpand && !isExpanded && `[&::-webkit-scrollbar-track]:bg-default! overflow-y-hidden!`
+    '[scrollbar-color:var(--slate-5)_transparent] scrollbar-thin',
+    (wordWrap || forceWordWrap) && 'wrap-anywhere! whitespace-pre-wrap!',
+    showExpand && !isExpanded && 'overflow-y-hidden!'
   );
 
   return codeBlockTitle ? (
     <Snippet>
       <SnippetHeader title={codeBlockTitle} Icon={getIconForFile(codeBlockTitle)}>
-        <CopyAction text={cleanCopyValue(value)} />
+        <CopyAction text={cleanCopyValue(value, resolvedVersion)} />
         <SettingsAction />
       </SnippetHeader>
       <SnippetContent className="p-0">
@@ -114,7 +151,7 @@ export function Code({ className, children, title }: CodeProps) {
           {...attributes}>
           <div className="w-fit p-4">
             <code
-              className="text-2xs text-default"
+              className="text-xs text-default"
               dangerouslySetInnerHTML={{ __html: highlightedHtml.replace(/^@@@.+@@@/g, '') }}
             />
           </div>
@@ -123,27 +160,29 @@ export function Code({ className, children, title }: CodeProps) {
       </SnippetContent>
     </Snippet>
   ) : (
-    <pre
-      ref={contentRef}
-      data-md-lang={language}
-      style={{
-        maxHeight: collapseBound,
-      }}
+    <div
       className={mergeClasses(
-        'border-secondary bg-subtle relative my-4 overflow-x-auto rounded-md border whitespace-pre',
+        'code-block-wrapper my-4 overflow-clip rounded-3xl border border-secondary bg-subtle',
         preferredTheme === Themes.DARK && 'dark-theme',
-        commonClasses,
         '[p+&]:mt-0'
-      )}
-      {...attributes}>
-      <div className="w-fit p-4">
-        <code
-          className="text-2xs text-default"
-          dangerouslySetInnerHTML={{ __html: highlightedHtml }}
-        />
-      </div>
-      {showExpand && <SnippetExpandOverlay onClick={expandCodeBlock} />}
-    </pre>
+      )}>
+      <pre
+        ref={contentRef}
+        data-md-lang={language}
+        style={{
+          maxHeight: collapseBound,
+        }}
+        className={mergeClasses('relative overflow-x-auto whitespace-pre', commonClasses)}
+        {...attributes}>
+        <div className="w-fit p-4">
+          <code
+            className="text-xs text-default"
+            dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+          />
+        </div>
+        {showExpand && <SnippetExpandOverlay onClick={expandCodeBlock} />}
+      </pre>
+    </div>
   );
 }
 
@@ -157,11 +196,14 @@ export const CodeBlock = ({ children, theme, className, inline = false }: CodeBl
   const Element = inline ? 'span' : 'pre';
   return (
     <Element
-      className={mergeClasses('m-0 px-1 py-1.5 whitespace-pre', inline && 'inline-flex p-0!')}
+      className={mergeClasses(
+        'm-0 px-1 py-1.5 whitespace-pre',
+        inline && 'inline-flex p-0! whitespace-pre-wrap'
+      )}
       {...attributes}>
       <CODE
         className={mergeClasses(
-          'text-3xs! text-default',
+          'text-xs! text-default',
           inline && 'block w-full p-1.5!',
           className
         )}

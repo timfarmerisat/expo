@@ -9,16 +9,17 @@ import {
 
 import { PluginConfigType, validateConfig } from './pluginConfig';
 
-const pkg = require('expo-dev-launcher/package.json');
+const pkg = require('../../package.json');
 
 /**
  * Adds a build phase script that strips dev-launcher-specific local network permission keys
- * from non-Debug builds. This keeps the keys in Debug builds (where dev-launcher is active)
- * but removes only the dev-launcher entries from production builds.
+ * from release builds. It keeps the keys in any debug build, detected via the DEBUG compile
+ * condition rather than the configuration name, so custom debug configurations (e.g. "Dev",
+ * "Staging") keep working. Only the dev-launcher entries are removed from release builds.
  *
  * IMPORTANT: This script only removes _expo._tcp Bonjour services and the dev-launcher
  * usage description. Any other Bonjour services or custom local network descriptions
- * added by the app will be preserved in production builds.
+ * added by the app will be preserved in release builds.
  */
 const withStripLocalNetworkKeysForRelease: ConfigPlugin = (config) => {
   return withXcodeProject(config, (config) => {
@@ -44,13 +45,25 @@ const withStripLocalNetworkKeysForRelease: ConfigPlugin = (config) => {
       return config;
     }
 
-    project.addBuildPhase([], 'PBXShellScriptBuildPhase', buildPhaseName, nativeTargetId, {
-      shellPath: '/bin/sh',
-      shellScript: `# Strip dev-launcher-specific local network permission keys from non-Debug builds
+    project.addBuildPhase(
+      [],
+      'PBXShellScriptBuildPhase',
+      buildPhaseName,
+      nativeTargetId,
+      {
+        shellPath: '/bin/sh',
+        shellScript: `# Strip dev-launcher-specific local network permission keys from release builds.
 # This only removes _expo._tcp Bonjour services and the dev-launcher usage description.
 # Other Bonjour services and custom descriptions are preserved for production use.
+#
+# Detect debug builds via the DEBUG compile condition rather than the configuration name,
+# so custom debug configurations (e.g. "Dev", "Staging") that define DEBUG keep the keys.
+case " $SWIFT_ACTIVE_COMPILATION_CONDITIONS " in
+  *" DEBUG "*) IS_DEBUG_BUILD=1 ;;
+  *) IS_DEBUG_BUILD=0 ;;
+esac
 
-if [ "$CONFIGURATION" != "Debug" ]; then
+if [ "$IS_DEBUG_BUILD" != "1" ]; then
   PLIST_PATH="\${TARGET_BUILD_DIR}/\${INFOPLIST_PATH}"
   if [ -f "$PLIST_PATH" ]; then
     # Check if NSBonjourServices exists
@@ -81,7 +94,23 @@ if [ "$CONFIGURATION" != "Debug" ]; then
   fi
 fi
 `,
-    });
+      },
+      undefined
+    );
+
+    const targetPhases: { value: string; comment?: string }[] =
+      project.pbxNativeTargetSection()[nativeTargetId]?.buildPhases ?? [];
+    const addedIdx = targetPhases.findIndex((p) => p.comment === buildPhaseName);
+    if (addedIdx >= 0) {
+      const [added] = targetPhases.splice(addedIdx, 1);
+      if (added) {
+        const firstEmbedIdx = targetPhases.findIndex((p) =>
+          /^Embed |^\[CP\] Embed /.test(p.comment ?? '')
+        );
+        const insertIdx = firstEmbedIdx >= 0 ? firstEmbedIdx : targetPhases.length;
+        targetPhases.splice(insertIdx, 0, added);
+      }
+    }
 
     return config;
   });
@@ -118,14 +147,52 @@ export default createRunOncePlugin<PluginConfigType>(
   (config, props = {}) => {
     validateConfig(props);
 
+    const androidDefaultLaunchURL = props.android?.defaultLaunchURL ?? props.defaultLaunchURL;
+    const iosDefaultLaunchURL = props.ios?.defaultLaunchURL ?? props.defaultLaunchURL;
     const iOSLaunchMode =
       props.ios?.launchMode ??
       props.launchMode ??
       props.ios?.launchModeExperimental ??
       props.launchModeExperimental;
-    if (iOSLaunchMode === 'launcher') {
-      config = withInfoPlist(config, (config) => {
+
+    config = withInfoPlist(config, (config) => {
+      if (iOSLaunchMode === 'launcher') {
         config.modResults['DEV_CLIENT_TRY_TO_LAUNCH_LAST_BUNDLE'] = false;
+      }
+      if (iosDefaultLaunchURL) {
+        config.modResults['DEV_CLIENT_DEFAULT_LAUNCHER_URL'] = iosDefaultLaunchURL;
+      }
+      return config;
+    });
+
+    const iOSToolsButton = props.ios?.toolsButton ?? props.toolsButton;
+    if (iOSToolsButton !== undefined) {
+      config = withInfoPlist(config, (config) => {
+        config.modResults['EXDevMenuShowFloatingActionButton'] = iOSToolsButton;
+        return config;
+      });
+    }
+
+    const iOSEmbeddedBundle = props.ios?.embeddedBundle ?? props.embeddedBundle;
+    if (iOSEmbeddedBundle) {
+      config = withInfoPlist(config, (config) => {
+        config.modResults['EXDevClientEmbeddedBundle'] = true;
+        return config;
+      });
+    }
+
+    const iOSSkipOnboarding = props.ios?.skipOnboarding ?? props.skipOnboarding;
+    if (iOSSkipOnboarding !== undefined) {
+      config = withInfoPlist(config, (config) => {
+        config.modResults['EXDevMenuIsOnboardingFinished'] = iOSSkipOnboarding;
+        return config;
+      });
+    }
+
+    const iOSShowMenuAtLaunch = props.ios?.showMenuAtLaunch ?? props.showMenuAtLaunch;
+    if (iOSShowMenuAtLaunch !== undefined) {
+      config = withInfoPlist(config, (config) => {
+        config.modResults['EXDevMenuShowsAtLaunch'] = iOSShowMenuAtLaunch;
         return config;
       });
     }
@@ -135,14 +202,77 @@ export default createRunOncePlugin<PluginConfigType>(
       props.launchMode ??
       props.android?.launchModeExperimental ??
       props.launchModeExperimental;
-    if (androidLaunchMode === 'launcher') {
+
+    config = withAndroidManifest(config, (config) => {
+      const mainApplication = AndroidConfig.Manifest.getMainApplicationOrThrow(config.modResults);
+      if (androidLaunchMode === 'launcher') {
+        AndroidConfig.Manifest.addMetaDataItemToMainApplication(
+          mainApplication,
+          'DEV_CLIENT_TRY_TO_LAUNCH_LAST_BUNDLE',
+          false?.toString()
+        );
+      }
+      if (androidDefaultLaunchURL) {
+        AndroidConfig.Manifest.addMetaDataItemToMainApplication(
+          mainApplication,
+          'DEV_CLIENT_DEFAULT_LAUNCHER_URL',
+          androidDefaultLaunchURL
+        );
+      }
+      return config;
+    });
+
+    const androidToolsButton = props.android?.toolsButton ?? props.toolsButton;
+    if (androidToolsButton !== undefined) {
       config = withAndroidManifest(config, (config) => {
         const mainApplication = AndroidConfig.Manifest.getMainApplicationOrThrow(config.modResults);
 
         AndroidConfig.Manifest.addMetaDataItemToMainApplication(
           mainApplication,
-          'DEV_CLIENT_TRY_TO_LAUNCH_LAST_BUNDLE',
-          false?.toString()
+          'EXDevMenuShowFloatingActionButton',
+          String(androidToolsButton)
+        );
+        return config;
+      });
+    }
+
+    const androidEmbeddedBundle = props.android?.embeddedBundle ?? props.embeddedBundle;
+    if (androidEmbeddedBundle) {
+      config = withAndroidManifest(config, (config) => {
+        const mainApplication = AndroidConfig.Manifest.getMainApplicationOrThrow(config.modResults);
+
+        AndroidConfig.Manifest.addMetaDataItemToMainApplication(
+          mainApplication,
+          'EXDevClientEmbeddedBundle',
+          String(true)
+        );
+        return config;
+      });
+    }
+
+    const androidSkipOnboarding = props.android?.skipOnboarding ?? props.skipOnboarding;
+    if (androidSkipOnboarding !== undefined) {
+      config = withAndroidManifest(config, (config) => {
+        const mainApplication = AndroidConfig.Manifest.getMainApplicationOrThrow(config.modResults);
+
+        AndroidConfig.Manifest.addMetaDataItemToMainApplication(
+          mainApplication,
+          'EXDevMenuIsOnboardingFinished',
+          String(androidSkipOnboarding)
+        );
+        return config;
+      });
+    }
+
+    const androidShowMenuAtLaunch = props.android?.showMenuAtLaunch ?? props.showMenuAtLaunch;
+    if (androidShowMenuAtLaunch !== undefined) {
+      config = withAndroidManifest(config, (config) => {
+        const mainApplication = AndroidConfig.Manifest.getMainApplicationOrThrow(config.modResults);
+
+        AndroidConfig.Manifest.addMetaDataItemToMainApplication(
+          mainApplication,
+          'EXDevMenuShowsAtLaunch',
+          String(androidShowMenuAtLaunch)
         );
         return config;
       });

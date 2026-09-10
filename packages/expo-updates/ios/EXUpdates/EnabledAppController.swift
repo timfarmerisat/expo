@@ -16,6 +16,13 @@ internal class EnabledUpdatesStateChangeSubscription: UpdatesStateChangeSubscrip
       updatesController.unsubscribeFromUpdatesStateChanges(subscriptionId)
     }
   }
+
+  func getContext() -> Any? {
+    if let updatesController = AppController.sharedInstance as? EnabledAppController {
+      return updatesController.getNativeInterfaceContext()
+    }
+    return nil
+  }
 }
 
 /**
@@ -32,7 +39,7 @@ public class EnabledAppController: InternalAppControllerInterface, UpdatesInterf
   private let updatesDirectoryInternal: URL
   private let controllerQueue = DispatchQueue(label: "expo.controller.ControllerQueue")
   public let isActiveController = true
-  private var isStarted = false
+  public private(set) var isStarted = false
   private var startupStartTime: DispatchTime?
   private var startupEndTime: DispatchTime?
 
@@ -57,12 +64,16 @@ public class EnabledAppController: InternalAppControllerInterface, UpdatesInterf
 
   public let eventManager: UpdatesEventManager
 
-  // swiftlint:disable implicitly_unwrapped_optional
-  private var startupProcedure: StartupProcedure!
-  // swiftlint:enable implicitly_unwrapped_optional
+  // Assigned on the main thread in `start()` and read from whatever thread a native consumer of
+  // `UpdatesInterface` happens to be on, so the reference is synchronized, not just nil-checked.
+  private let startupProcedureStorage = Mutex<StartupProcedure?>(nil)
+  private var startupProcedure: StartupProcedure? {
+    get { startupProcedureStorage.withLock { $0 } }
+    set { startupProcedureStorage.withLock { $0 = newValue } }
+  }
 
   public func launchAssetUrl() -> URL? {
-    return startupProcedure.launchAssetUrl()
+    return startupProcedure?.launchAssetUrl()
   }
 
   required init(config: UpdatesConfig, database: UpdatesDatabase, updatesDirectory: URL) {
@@ -87,7 +98,7 @@ public class EnabledAppController: InternalAppControllerInterface, UpdatesInterf
       UpdatesBuildData.ensureBuildDataIsConsistentAsync(database: database, config: self.config, logger: logger)
     }
 
-    startupProcedure = StartupProcedure(
+    let procedure = StartupProcedure(
       database: self.database,
       config: self.config,
       selectionPolicy: self.selectionPolicy,
@@ -95,8 +106,9 @@ public class EnabledAppController: InternalAppControllerInterface, UpdatesInterf
       updatesDirectory: self.updatesDirectoryInternal,
       logger: self.logger
     )
-    startupProcedure.delegate = self
-    stateMachine.queueExecution(stateMachineProcedure: startupProcedure)
+    procedure.delegate = self
+    startupProcedure = procedure
+    stateMachine.queueExecution(stateMachineProcedure: procedure)
   }
 
   public func onEventListenerStartObserving() {
@@ -111,7 +123,7 @@ public class EnabledAppController: InternalAppControllerInterface, UpdatesInterf
     delegate.let { _ in
       DispatchQueue.main.async { [weak self] in
         if let strongSelf = self {
-          strongSelf.delegate?.appController(strongSelf, didStartWithSuccess: strongSelf.startupProcedure.launchAssetUrl() != nil)
+          strongSelf.delegate?.appController(strongSelf, didStartWithSuccess: strongSelf.startupProcedure?.launchAssetUrl() != nil)
         }
       }
     }
@@ -129,11 +141,11 @@ public class EnabledAppController: InternalAppControllerInterface, UpdatesInterf
       triggerReloadCommandListenersReason: "Relaunch after fatal error",
       reloadScreenManager: self.reloadScreenManager
     ) {
-      return self.startupProcedure.launchedUpdate()
+      return self.startupProcedure?.launchedUpdate()
     } setLauncher: { newLauncher in
-      self.startupProcedure.setLauncher(newLauncher)
+      self.startupProcedure?.setLauncher(newLauncher)
     } requestStartErrorMonitoring: {
-      self.startupProcedure.requestStartErrorMonitoring()
+      self.startupProcedure?.requestStartErrorMonitoring()
     } successBlock: {
       completion(nil, true)
     } errorBlock: { error in
@@ -158,11 +170,11 @@ public class EnabledAppController: InternalAppControllerInterface, UpdatesInterf
       triggerReloadCommandListenersReason: "Requested by JavaScript - Updates.reloadAsync()",
       reloadScreenManager: self.reloadScreenManager
     ) {
-      return self.startupProcedure.launchedUpdate()
+      return self.startupProcedure?.launchedUpdate()
     } setLauncher: { newLauncher in
-      self.startupProcedure.setLauncher(newLauncher)
+      self.startupProcedure?.setLauncher(newLauncher)
     } requestStartErrorMonitoring: {
-      self.startupProcedure.requestStartErrorMonitoring()
+      self.startupProcedure?.requestStartErrorMonitoring()
     } successBlock: {
       successBlockArg()
     } errorBlock: { error in
@@ -174,20 +186,28 @@ public class EnabledAppController: InternalAppControllerInterface, UpdatesInterf
 
   // MARK: - UpdatesInterface
 
-  internal var stateChangeListeners: [String: any UpdatesStateChangeListener] = [:]
+  // Subscribed from the module-registry thread, iterated on the state machine's queue. Listeners are
+  // notified off a snapshot, so one must stay safe to call after it unsubscribes.
+  private let stateChangeListeners = Mutex<[String: any UpdatesStateChangeListener]>([:])
 
   public func subscribeToUpdatesStateChanges(_ listener: any UpdatesStateChangeListener) -> UpdatesStateChangeSubscription {
     let subscriptionId = UUID().uuidString
     let subscription = EnabledUpdatesStateChangeSubscription(subscriptionId)
 
-    stateChangeListeners[subscriptionId] = listener
+    stateChangeListeners.withLock { $0[subscriptionId] = listener }
     return subscription
   }
 
   internal func unsubscribeFromUpdatesStateChanges(_ subscriptionId: String) {
-    if stateChangeListeners[subscriptionId] != nil {
-      stateChangeListeners.removeValue(forKey: subscriptionId)
-    }
+    stateChangeListeners.withLock { $0.removeValue(forKey: subscriptionId) }
+  }
+
+  internal func stateChangeListenersSnapshot() -> [any UpdatesStateChangeListener] {
+    return stateChangeListeners.withLock { Array($0.values) }
+  }
+
+  internal func getNativeInterfaceContext() -> UpdatesNativeInterfaceStateContext {
+    return stateMachine.context.nativeInterfaceContext
   }
 
   public var runtimeVersion: String? {
@@ -198,8 +218,14 @@ public class EnabledAppController: InternalAppControllerInterface, UpdatesInterf
     return config.updateUrl
   }
 
+  public var requestHeaders: [String : String]? {
+    return config.requestHeaders
+  }
+
+  // The controller is registered before `start()` assigns `startupProcedure`, so a native consumer
+  // can read this first. `isStarted` can't guard it — that is set before the assignment.
   public var launchedUpdateId: UUID? {
-    return startupProcedure.launchedUpdate()?.updateId
+    return startupProcedure?.launchedUpdate()?.updateId
   }
 
   public var embeddedUpdateId: UUID? {
@@ -207,7 +233,7 @@ public class EnabledAppController: InternalAppControllerInterface, UpdatesInterf
   }
 
   public var launchAssetPath: String? {
-    return startupProcedure.launchAssetUrl()?.relativePath
+    return startupProcedure?.launchAssetUrl()?.relativePath
   }
 
   public var isEnabled: Bool = true
@@ -222,16 +248,16 @@ public class EnabledAppController: InternalAppControllerInterface, UpdatesInterf
 
   public func getConstantsForModule() -> UpdatesModuleConstants {
     return UpdatesModuleConstants(
-      launchedUpdate: startupProcedure.launchedUpdate(),
+      launchedUpdate: startupProcedure?.launchedUpdate(),
       launchDuration: launchDuration,
       embeddedUpdate: getEmbeddedUpdate(),
-      emergencyLaunchException: startupProcedure.emergencyLaunchException,
+      emergencyLaunchException: startupProcedure?.emergencyLaunchException,
       isEnabled: true,
-      isUsingEmbeddedAssets: startupProcedure.isUsingEmbeddedAssets(),
+      isUsingEmbeddedAssets: startupProcedure?.isUsingEmbeddedAssets() ?? true,
       runtimeVersion: self.config.runtimeVersion,
       checkOnLaunch: self.config.checkOnLaunch,
       requestHeaders: self.config.requestHeaders,
-      assetFilesMap: startupProcedure.assetFilesMap(),
+      assetFilesMap: startupProcedure?.assetFilesMap(),
       shouldDeferToNativeForAPIMethodAvailabilityInDevelopment: false,
       initialContext: stateMachine.context
     )
@@ -248,7 +274,7 @@ public class EnabledAppController: InternalAppControllerInterface, UpdatesInterf
       logger: self.logger,
       updatesDirectory: self.updatesDirectoryInternal
     ) {
-      return self.startupProcedure.launchedUpdate()
+      return self.startupProcedure?.launchedUpdate()
     } successBlock: { checkForUpdateResult in
       successBlockArg(checkForUpdateResult)
     } errorBlock: { error in
@@ -269,7 +295,7 @@ public class EnabledAppController: InternalAppControllerInterface, UpdatesInterf
       updatesDirectory: self.updatesDirectoryInternal,
       logger: self.logger
     ) {
-      return self.startupProcedure.launchedUpdate()
+      return self.startupProcedure?.launchedUpdate()
     } successBlock: { fetchUpdateResult in
       successBlockArg(fetchUpdateResult)
     } errorBlock: { error in

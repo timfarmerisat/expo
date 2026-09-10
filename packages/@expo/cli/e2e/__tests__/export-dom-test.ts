@@ -1,13 +1,12 @@
-/* eslint-env jest */
 import JsonFile from '@expo/json-file';
 import fs from 'fs/promises';
 import { sync as globSync } from 'glob';
 import crypto from 'node:crypto';
 import path from 'path';
 
-import { projectRoot, setupTestProjectWithOptionsAsync, findProjectFiles } from './utils';
 import { toPosixPath } from '../../src/utils/filePath';
 import { executeExpoAsync } from '../utils/expo';
+import { projectRoot, setupTestProjectWithOptionsAsync, findProjectFiles } from './utils';
 
 const originalForceColor = process.env.FORCE_COLOR;
 const originalCI = process.env.CI;
@@ -62,12 +61,12 @@ describe('Export DOM Components', () => {
     const nativeBundlePath = globSync('**/*.{hbc,js}', {
       cwd: path.join(outputDir, '_expo/static/js/ios'),
       absolute: true,
-    })[0];
+    })[0]!;
     const domEntry = await fs.readFile(
       globSync('www.bundle/**/*.html', {
         cwd: outputDir,
         absolute: true,
-      })[0],
+      })[0]!,
       'utf8'
     );
     const md5HtmlBundle = crypto.createHash('md5').update(domEntry).digest('hex');
@@ -79,7 +78,7 @@ describe('Export DOM Components', () => {
       globSync('www.bundle/**/*.js', {
         cwd: outputDir,
         absolute: true,
-      })[0],
+      })[0]!,
       'utf8'
     );
     const md5DomJsBundle = crypto.createHash('md5').update(domJsBundleContent).digest('hex');
@@ -136,7 +135,7 @@ describe('Export DOM Components', () => {
               path: expect.pathMatching(/assets\/(?<md5>[0-9a-fA-F]{32})/),
             },
           ]),
-          bundle: expect.pathMatching(/_expo\/static\/js\/ios\/AppEntry-.*\.hbc$/),
+          bundle: expect.pathMatching(/_expo\/static\/js\/ios\/index-.*\.hbc$/),
         },
       },
       version: 0,
@@ -178,10 +177,8 @@ describe('Export DOM Components', () => {
     );
     expect(outputFilesWithoutMap).toEqual(
       expect.arrayContaining([
-        expect.stringMatching(/_expo\/static\/js\/ios\/AppEntry-(?<md5>[0-9a-fA-F]{32})\.hbc$/),
-        expect.stringMatching(
-          /_expo\/static\/js\/ios\/AppEntry-(?<md5>[0-9a-fA-F]{32})\.hbc\.map$/
-        ),
+        expect.stringMatching(/_expo\/static\/js\/ios\/index-(?<md5>[0-9a-fA-F]{32})\.hbc$/),
+        expect.stringMatching(/_expo\/static\/js\/ios\/index-(?<md5>[0-9a-fA-F]{32})\.hbc\.map$/),
         'assetmap.json',
 
         // icon png

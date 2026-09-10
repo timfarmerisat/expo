@@ -38,6 +38,9 @@ internal class AudioRecorderPrepareException(cause: Throwable) :
 internal class AudioRecorderAlreadyPreparedException :
   CodedException("AudioRecorder has already been prepared. Stop or release the current session before preparing again.")
 
+internal class InvalidRecordingFileNameException(name: String) :
+  CodedException("Invalid recording file name '$name': must not contain '/', '\\', or '..'")
+
 internal fun getPlaybackServiceErrorMessage(
   message: String?,
   tip: String = defaultPlaybackServiceTip
@@ -57,3 +60,11 @@ internal class AudioRecordingServiceException(message: String?, cause: Throwable
 
 internal class AudioPlaybackServiceException(message: String?, cause: Throwable? = null) :
   CodedException(getPlaybackServiceErrorMessage(message), cause)
+
+internal class AudioStreamUnsupportedConfigException(message: String) :
+  CodedException(message)
+
+internal class AudioStreamInitializationException(message: String) :
+  CodedException(message)
+
+internal class AudioStreamFileException(message: String) : CodedException(message)

@@ -44,3 +44,27 @@ internal struct WidgetAccentedRenderingModeModifier: Record {
 #endif
   }
 }
+
+internal struct WidgetURLModifier: ViewModifier, Record {
+  @Field var url: URL?
+
+  func body(content: Content) -> some View {
+#if !os(tvOS)
+    content.widgetURL(url)
+#else
+    content
+#endif
+  }
+}
+
+internal struct ActivityBackgroundTintModifier: ViewModifier, Record {
+  @Field var color: Color?
+
+  func body(content: Content) -> some View {
+#if !os(tvOS) && !os(macOS) && !targetEnvironment(macCatalyst)
+    content.activityBackgroundTint(color)
+#else
+    content
+#endif
+  }
+}

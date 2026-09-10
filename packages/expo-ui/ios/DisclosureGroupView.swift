@@ -4,7 +4,7 @@ import SwiftUI
 import ExpoModulesCore
 
 internal final class DisclosureGroupViewProps: UIBaseViewProps {
-  @Field var label: String
+  @Field var label: String?
   @Field var isExpanded: Bool = true
   var onIsExpandedChange = EventDispatcher()
 }
@@ -13,25 +13,46 @@ internal struct DisclosureGroupView: ExpoSwiftUI.View {
   @ObservedObject var props: DisclosureGroupViewProps
   @State private var isExpanded: Bool = false
 
-  init(props: DisclosureGroupViewProps) {
-    self.props = props
-    _isExpanded = State(initialValue: props.isExpanded)
-  }
-
   var body: some View {
 #if os(tvOS)
     Text("DisclosureGroupView is not supported on tvOS")
 #else
-    DisclosureGroup(props.label, isExpanded: $isExpanded) {
-      Children()
-    }
-    .onChange(of: isExpanded) { newValue in
-      let payload = ["isExpanded": newValue]
-      props.onIsExpandedChange(payload)
-    }
-    .onChange(of: props.isExpanded) { newValue in
-      isExpanded = newValue
-    }
+    disclosureGroup
+      .onChange(of: isExpanded) { newValue in
+        if newValue == props.isExpanded { return }
+        props.onIsExpandedChange(["isExpanded": newValue])
+      }
+      .onChange(of: props.isExpanded) { newValue in
+        isExpanded = newValue
+      }
+      .onAppear {
+        isExpanded = props.isExpanded
+      }
 #endif
   }
+
+#if !os(tvOS)
+  @ViewBuilder
+  private var disclosureGroup: some View {
+    if let labelContent = props.children?.slot("label") {
+      DisclosureGroup(isExpanded: $isExpanded) {
+        childrenWithoutLabel
+      } label: {
+        labelContent
+      }
+    } else {
+      DisclosureGroup(props.label ?? "", isExpanded: $isExpanded) {
+        Children()
+      }
+    }
+  }
+
+  @ViewBuilder
+  private var childrenWithoutLabel: some View {
+    ForEach(props.children?.withoutSlot("label") ?? [], id: \.id) { child in
+      let view: any View = child.childView
+      AnyView(view)
+    }
+  }
+#endif
 }

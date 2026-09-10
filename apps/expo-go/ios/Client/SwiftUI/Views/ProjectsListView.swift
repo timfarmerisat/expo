@@ -26,15 +26,18 @@ struct ProjectsListView: View {
         }
 
         if viewModel.hasMore && !viewModel.isLoading {
-          Button("Load More") {
+          Button {
             Task {
               await viewModel.loadMore()
             }
+          } label: {
+            Text("Load more")
+              .frame(maxWidth: .infinity)
+              .padding()
+              .background(Color.expoSecondarySystemBackground)
+              .clipShape(RoundedRectangle(cornerRadius: BorderRadius.large))
+              .contentShape(Rectangle())
           }
-          .frame(maxWidth: .infinity)
-          .padding()
-          .background(Color.expoSecondarySystemBackground)
-          .clipShape(RoundedRectangle(cornerRadius: BorderRadius.large))
         }
 
         if viewModel.isLoading && !viewModel.projects.isEmpty {
@@ -74,9 +77,8 @@ class ProjectsListViewModel: ObservableObject {
   @Published var hasMore = false
 
   private let accountName: String
-  private var currentOffset = 0
-  private let pageSize = 15
-  private var totalCount = 0
+  private var endCursor: String?
+  private let pageSize = 20
 
   init(accountName: String) {
     self.accountName = accountName
@@ -84,19 +86,17 @@ class ProjectsListViewModel: ObservableObject {
 
   func loadInitial() async {
     guard projects.isEmpty else { return }
-    currentOffset = 0
+    endCursor = nil
     await fetchProjects()
   }
 
   func refresh() async {
-    currentOffset = 0
-    projects = []
+    endCursor = nil
     await fetchProjects()
   }
 
   func loadMore() async {
     guard !isLoading, hasMore else { return }
-    currentOffset += pageSize
     await fetchProjects()
   }
 
@@ -104,28 +104,37 @@ class ProjectsListViewModel: ObservableObject {
     isLoading = true
     defer { isLoading = false }
 
+    let isFirstPage = endCursor == nil
+    var variables: [String: Any] = [
+      "accountName": accountName,
+      "first": pageSize,
+      "platform": "IOS"
+    ]
+    if let endCursor {
+      variables["after"] = endCursor
+    }
+
     do {
       let response: ProjectsListResponse = try await APIClient.shared.request(
         Queries.getProjectsList(),
-        variables: [
-          "accountName": accountName,
-          "limit": pageSize,
-          "offset": currentOffset,
-          "platform": "IOS"
-        ]
+        variables: variables
       )
 
-      let newProjects = response.data.account.byName.apps.map { $0.toExpoProject() }
-      totalCount = response.data.account.byName.appCount
+      let connection = response.data.account.byName.appsPaginated
+      let newProjects = connection.edges.map { $0.node.toExpoProject() }
 
-      if currentOffset == 0 {
+      if isFirstPage {
         projects = newProjects
       } else {
         projects.append(contentsOf: newProjects)
       }
 
-      hasMore = projects.count < totalCount
+      hasMore = connection.pageInfo?.hasNextPage ?? false
+      endCursor = connection.pageInfo?.endCursor
     } catch {
+      if (error as? APIError)?.isCancellation == true {
+        return
+      }
       self.error = error
       self.showingError = true
     }

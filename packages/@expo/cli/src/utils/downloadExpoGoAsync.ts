@@ -1,40 +1,33 @@
 import fs from 'fs/promises';
 import path from 'path';
-import ProgressBar from 'progress';
+import type ProgressBar from 'progress';
 import { gt } from 'semver';
 
+import { debugEvent } from '../api/events';
+import type { SDKVersion } from '../api/getVersions';
+import { getVersionsAsync } from '../api/getVersions';
+import { getExpoHomeDirectory } from '../api/user/UserSettings';
+import { Log } from '../log';
 import { downloadAppAsync } from './downloadAppAsync';
 import { CommandError } from './errors';
 import { ora } from './ora';
 import { profile } from './profile';
 import { createProgressBar } from './progress';
-import { getVersionsAsync, SDKVersion } from '../api/getVersions';
-import { getExpoHomeDirectory } from '../api/user/UserSettings';
-import { Log } from '../log';
 
-const debug = require('debug')('expo:utils:downloadExpoGo') as typeof console.log;
-
-const platformSettings: Record<
-  string,
-  {
-    shouldExtractResults: boolean;
-    versionsKey: keyof SDKVersion;
-    getFilePath: (filename: string) => string;
-  }
-> = {
+const platformSettings = {
   ios: {
     versionsKey: 'iosClientUrl',
-    getFilePath: (filename) =>
+    getFilePath: (filename: string) =>
       path.join(getExpoHomeDirectory(), 'ios-simulator-app-cache', `${filename}.app`),
     shouldExtractResults: true,
   },
   android: {
     versionsKey: 'androidClientUrl',
-    getFilePath: (filename) =>
+    getFilePath: (filename: string) =>
       path.join(getExpoHomeDirectory(), 'android-apk-cache', `${filename}.apk`),
     shouldExtractResults: false,
   },
-};
+} as const;
 
 /**
  * @internal exposed for testing.
@@ -42,8 +35,7 @@ const platformSettings: Record<
  */
 export async function getExpoGoVersionEntryAsync(sdkVersion: string): Promise<SDKVersion> {
   const { sdkVersions: versions } = await getVersionsAsync();
-  let version: SDKVersion;
-
+  let version: SDKVersion | undefined;
   if (sdkVersion.toUpperCase() === 'UNVERSIONED') {
     // find the latest version
     const latestVersionKey = Object.keys(versions).reduce((a, b) => {
@@ -87,7 +79,7 @@ export async function cleanupOldExpoGoCacheEntriesAsync(
     try {
       const stat = await fs.lstat(filePath);
       if (now - stat.mtimeMs > maxAgeMs) {
-        debug(`Removing old app cache entry: ${filePath}`);
+        debugEvent('expo_go_cache_removed', { path: debugEvent.path(filePath) });
         await fs.rm(filePath, { recursive: true, force: true });
       }
     } catch {
@@ -117,7 +109,7 @@ export async function downloadExpoGoAsync(
     if (!url) {
       const version = await getExpoGoVersionEntryAsync(sdkVersion);
 
-      debug(`Installing Expo Go version for SDK ${sdkVersion} at URL: ${version[versionsKey]}`);
+      debugEvent('expo_go_version_resolved', { sdkVersion, url: version[versionsKey] as string });
       url = version[versionsKey] as string;
     }
   } catch (error) {
@@ -130,10 +122,7 @@ export async function downloadExpoGoAsync(
   try {
     const outputPath = getFilePath(filename);
     cleanupOldExpoGoCacheEntriesAsync(path.dirname(outputPath));
-    debug(`Downloading Expo Go from "${url}" to "${outputPath}".`);
-    debug(
-      `The requested copy of Expo Go might already be cached in: "${getExpoHomeDirectory()}". You can disable the cache with EXPO_NO_CACHE=1`
-    );
+    debugEvent('expo_go_download_started', { url, output: outputPath });
     await profile(downloadAppAsync)({
       url,
       // Save all encrypted cache data to `~/.expo/expo-go`

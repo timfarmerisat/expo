@@ -1,8 +1,9 @@
 import { requireNativeView } from 'expo';
-import { ReactNode } from 'react';
-import { StyleProp, ViewStyle, type ColorValue } from 'react-native';
+import type { ReactNode } from 'react';
+import type { StyleProp, ViewStyle, ColorValue } from 'react-native';
 
-import { ModifierConfig } from '../../types';
+import { PresentedContent } from '../../PresentedContentContext';
+import type { ModifierConfig } from '../../types';
 import { createViewModifierEventListener } from '../modifiers/utils';
 
 const MenuNativeView: React.ComponentType<NativeMenuProps> = requireNativeView(
@@ -19,7 +20,7 @@ const SlotNativeView: React.ComponentType<{
 /**
  * Props of the `DropdownMenu` component.
  */
-export type DropdownMenuProps = {
+export interface DropdownMenuProps {
   /**
    * The contents of the submenu are used as an anchor for the dropdown menu.
    * The children will be wrapped in a pressable element, which triggers opening of the dropdown menu.
@@ -43,6 +44,22 @@ export type DropdownMenuProps = {
   color?: ColorValue;
 
   /**
+   * Corner radius in dp for the dropdown menu container. Defaults to the Material3
+   * `MenuDefaults.shape` corner radius.
+   *
+   * @platform android
+   */
+  cornerRadius?: number;
+
+  /**
+   * Shadow elevation of the dropdown menu popup in dp. Set to `0` to remove the shadow.
+   * Defaults to Material3's `MenuDefaults.ShadowElevation`.
+   *
+   * @platform android
+   */
+  shadowElevation?: number;
+
+  /**
    * Optional styles to apply to the `DropdownMenu`.
    */
   style?: StyleProp<ViewStyle>;
@@ -51,12 +68,14 @@ export type DropdownMenuProps = {
    * Modifiers for the component.
    */
   modifiers?: ModifierConfig[];
-};
+}
 
 type NativeMenuProps = {
   expanded?: boolean;
   onDismissRequest?: () => void;
   color?: ColorValue;
+  cornerRadius?: number;
+  shadowElevation?: number;
   style?: StyleProp<ViewStyle>;
   modifiers?: ModifierConfig[];
   children?: ReactNode;
@@ -67,7 +86,12 @@ type NativeMenuProps = {
  * Children should be `DropdownMenuItem` components or other native views.
  */
 export function Items(props: { children: ReactNode }) {
-  return <SlotNativeView slotName="items">{props.children}</SlotNativeView>;
+  // The items are presented in their own popup window; the trigger stays in the React Native surface.
+  return (
+    <SlotNativeView slotName="items">
+      <PresentedContent>{props.children}</PresentedContent>
+    </SlotNativeView>
+  );
 }
 Items.tag = 'Items';
 

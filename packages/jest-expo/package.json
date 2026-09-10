@@ -1,19 +1,20 @@
 {
   "name": "jest-expo",
-  "version": "55.0.9",
+  "version": "58.0.0",
   "description": "A Jest preset to painlessly test your Expo / React Native apps.",
+  "homepage": "https://github.com/expo/expo/tree/main/packages/jest-expo",
+  "bugs": {
+    "url": "https://github.com/expo/expo/issues"
+  },
   "license": "MIT",
-  "main": "src/index.js",
-  "types": "src/index.d.ts",
   "repository": {
     "type": "git",
     "url": "git://github.com/expo/expo.git",
     "directory": "packages/jest-expo"
   },
-  "bugs": {
-    "url": "https://github.com/expo/expo/issues"
+  "bin": {
+    "jest": "bin/jest.js"
   },
-  "homepage": "https://github.com/expo/expo/tree/main/packages/jest-expo",
   "files": [
     "rsc",
     "android",
@@ -26,19 +27,16 @@
     "web",
     "jest-preset.js"
   ],
-  "bin": {
-    "jest": "bin/jest.js"
-  },
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
   "scripts": {
-    "lint": "eslint .",
-    "test": "jest"
-  },
-  "jest": {
-    "preset": "jest-expo/universal"
+    "lint": "oxlint --config oxlint.config.mjs .",
+    "format": "expo-module format",
+    "test": "jest",
+    "depscheck": "expo-module depscheck",
+    "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@expo/config": "~55.0.8",
-    "@expo/json-file": "^10.0.12",
     "@jest/create-cache-key-function": "^29.2.1",
     "@jest/globals": "^29.2.1",
     "babel-jest": "^29.2.1",
@@ -52,17 +50,26 @@
     "server-only": "^0.0.1",
     "stacktrace-js": "^2.0.2"
   },
+  "devDependencies": {
+    "@react-native/jest-preset": "0.87.1",
+    "@types/react": "~19.2.0",
+    "react-server-dom-webpack": "~19.0.8"
+  },
   "peerDependencies": {
+    "@react-native/jest-preset": "^0.87.1",
     "expo": "*",
     "react-native": "*",
     "react-server-dom-webpack": "~19.0.4 || ~19.1.5 || ~19.2.4"
   },
   "peerDependenciesMeta": {
+    "expo": {
+      "optional": true
+    },
     "react-server-dom-webpack": {
       "optional": true
     }
   },
-  "devDependencies": {
-    "react-server-dom-webpack": "~19.0.4"
+  "jest": {
+    "preset": "jest-expo/universal"
   }
 }

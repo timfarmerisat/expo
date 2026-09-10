@@ -1,62 +1,140 @@
 import { requireNativeView } from 'expo';
 import { type ColorValue } from 'react-native';
 
-import { ExpoModifier } from '../../types';
+import { type ModifierConfig } from '../../types';
 import { createViewModifierEventListener } from '../modifiers/utils';
 
 /**
  * Colors for card's core elements.
  */
-export type CardElementColors = {
+export type CardColors = {
   containerColor?: ColorValue;
   contentColor?: ColorValue;
 };
 
-export type CardProps = {
+/**
+ * Border configuration for cards.
+ */
+export type CardBorder = {
   /**
-   * The content to display inside the card.
+   * Border width in dp.
+   * @default 1
    */
-  children?: React.ReactNode;
+  width?: number;
   /**
-   * The variant of the card.
-   * - 'default' - A filled card with no outline.
-   * - 'elevated' - A filled card with elevation/shadow.
-   * - 'outlined' - A card with an outline border.
-   * @default 'default'
-   */
-  variant?: 'default' | 'elevated' | 'outlined';
-  /**
-   * The background color of the card.
+   * Border color.
    */
   color?: ColorValue;
-  /**
-   * Colors for card's core elements.
-   */
-  elementColors?: CardElementColors;
-  /**
-   * Modifiers for the component.
-   */
-  modifiers?: ExpoModifier[];
 };
 
-type NativeCardProps = CardProps;
-const CardNativeView: React.ComponentType<NativeCardProps> = requireNativeView(
-  'ExpoUI',
-  'CardView'
-);
-
-function transformProps(props: CardProps): NativeCardProps {
+function transformProps<T extends { modifiers?: ModifierConfig[] }>(props: T): T {
   const { modifiers, ...restProps } = props;
   return {
     modifiers,
     ...(modifiers ? createViewModifierEventListener(modifiers) : undefined),
     ...restProps,
-  };
+  } as T;
+}
+
+function createCardComponent<P extends { modifiers?: ModifierConfig[] }>(
+  viewName: string
+): React.ComponentType<P> {
+  const NativeView: React.ComponentType<P> = requireNativeView('ExpoUI', viewName);
+  function Component(props: P) {
+    return <NativeView {...transformProps(props)} />;
+  }
+  Component.displayName = viewName;
+  return Component;
+}
+
+// region Card
+
+export interface CardProps {
+  /**
+   * The content to display inside the card.
+   */
+  children?: React.ReactNode;
+  /**
+   * Colors for card's core elements.
+   */
+  colors?: CardColors;
+  /**
+   * Default elevation in dp.
+   */
+  elevation?: number;
+  /**
+   * Border configuration for the card.
+   */
+  border?: CardBorder;
+  /**
+   * Modifiers for the component.
+   */
+  modifiers?: ModifierConfig[];
 }
 
 /**
- * A card component that provides a surface for content.
+ * A card component that renders a filled card surface for content.
  */
-export function Card(props: CardProps) {
-  return <CardNativeView {...transformProps(props)} />;
+export const Card = createCardComponent<CardProps>('CardView');
+
+// endregion
+
+// region ElevatedCard
+
+export interface ElevatedCardProps {
+  /**
+   * The content to display inside the card.
+   */
+  children?: React.ReactNode;
+  /**
+   * Colors for card's core elements.
+   */
+  colors?: CardColors;
+  /**
+   * Default elevation in dp. Material 3 default is 1dp.
+   */
+  elevation?: number;
+  /**
+   * Modifiers for the component.
+   */
+  modifiers?: ModifierConfig[];
 }
+
+/**
+ * An elevated card component that provides a raised surface for content.
+ */
+export const ElevatedCard = createCardComponent<ElevatedCardProps>('ElevatedCardView');
+
+// endregion
+
+// region OutlinedCard
+
+export interface OutlinedCardProps {
+  /**
+   * The content to display inside the card.
+   */
+  children?: React.ReactNode;
+  /**
+   * Colors for card's core elements.
+   */
+  colors?: CardColors;
+  /**
+   * Default elevation in dp.
+   */
+  elevation?: number;
+  /**
+   * Border configuration for the outlined card.
+   */
+  border?: CardBorder;
+  /**
+   * Modifiers for the component.
+   */
+  modifiers?: ModifierConfig[];
+}
+
+/**
+ * An outlined card component that provides a bordered surface for content.
+ */
+export const OutlinedCard = createCardComponent<OutlinedCardProps>('OutlinedCardView');
+
+// endregion

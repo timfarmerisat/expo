@@ -2,9 +2,6 @@ import AVFoundation
 
 let BARCODE_TYPES_KEY = "barcodeTypes"
 
-#if canImport(ZXingObjC)
-import ZXingObjC
-
 class BarcodeScanner: NSObject, BarcodeScanningResponseHandler {
   private var onBarcodeScanned: (([String: Any]?) -> Void)?
   var isScanningBarcodes = false
@@ -13,36 +10,53 @@ class BarcodeScanner: NSObject, BarcodeScanningResponseHandler {
 
   private let session: AVCaptureSession
   private let sessionQueue: DispatchQueue
-  private let zxingCaptureQueue = DispatchQueue(label: "com.zxing.captureQueue")
+  private let captureQueue = DispatchQueue(label: "com.expo.barcodeScannerCaptureQueue")
 
   private var metadataOutput: AVCaptureMetadataOutput?
   private var videoDataOutput: AVCaptureVideoDataOutput?
   private var settings = BarcodeScannerUtils.getDefaultSettings()
-  private var zxingBarcodeReaders: [AVMetadataObject.ObjectType: ZXReader] = [
-    AVMetadataObject.ObjectType.pdf417: ZXPDF417Reader(),
-    AVMetadataObject.ObjectType.code39: ZXCode39Reader()
-  ]
   private var previewLayer: AVCaptureVideoPreviewLayer?
-  private var zxingEnabled = true
+  private var barcodeProviderEnabled = true
   private var delegate: MetaDataDelegate?
 
-  init(session: AVCaptureSession, sessionQueue: DispatchQueue) {
+  private let barcodeProvider: ExpoBarcodeScannerProvider?
+
+  init(
+    session: AVCaptureSession,
+    sessionQueue: DispatchQueue,
+    provider: ExpoBarcodeScannerProvider? = BarcodeScanner.discoverProvider()
+  ) {
     self.session = session
     self.sessionQueue = sessionQueue
+    self.barcodeProvider = provider
+  }
 
-    if #available(iOS 15.4, *) {
-      zxingBarcodeReaders[AVMetadataObject.ObjectType.codabar] = ZXCodaBarReader()
+  /// Discovers the optional barcode scanner provider at runtime.
+  /// The provider module registers by exposing a class named "ExpoCameraZXingProvider"
+  /// that conforms to ExpoBarcodeScannerProvider. Returns nil if the provider pod isn't linked.
+  static func discoverProvider() -> ExpoBarcodeScannerProvider? {
+    guard let cls = NSClassFromString("ExpoCameraZXingProvider") as? NSObject.Type,
+          let instance = cls.init() as? ExpoBarcodeScannerProvider else {
+      return nil
     }
+    return instance
   }
 
   func setSettings(_ newSettings: [String: [AVMetadataObject.ObjectType]]) {
     for (key, value) in newSettings where key == BARCODE_TYPES_KEY {
+      let augmentedValue = BarcodeScannerUtils.augmentedBarcodeTypes(value)
       let previousTypes = Set(settings[BARCODE_TYPES_KEY] ?? [])
-      let newTypes = Set(value)
+      let newTypes = Set(augmentedValue)
       if previousTypes != newTypes {
-        settings[BARCODE_TYPES_KEY] = value
-        let zxingCoveredTypes = Set(zxingBarcodeReaders.keys)
-        zxingEnabled = !zxingCoveredTypes.isDisjoint(with: newTypes)
+        settings[BARCODE_TYPES_KEY] = augmentedValue
+        if let barcodeProvider {
+          let supportedTypeSet = Set(barcodeProvider.supportedTypes)
+          let requestedRawValues = Set(newTypes.map { $0.rawValue })
+          barcodeProviderEnabled = !supportedTypeSet.isDisjoint(with: requestedRawValues)
+        } else {
+          barcodeProviderEnabled = false
+        }
+        delegate?.updateSettings(settings, barcodeProviderEnabled: barcodeProviderEnabled)
         maybeStartBarcodeScanning()
       }
     }
@@ -85,7 +99,10 @@ class BarcodeScanner: NSObject, BarcodeScanningResponseHandler {
       return
     }
 
-    if metadataOutput == nil || videoDataOutput == nil {
+    // A session can accept the metadata output while rejecting the video data output, which
+    // conflicts with the movie file output used in video mode. Keep retrying until the provider
+    // has its frame source, otherwise the types it claims scan nothing.
+    if metadataOutput == nil || (barcodeProvider != nil && videoDataOutput == nil) {
       addOutputs()
       if metadataOutput == nil {
         return
@@ -108,12 +125,13 @@ class BarcodeScanner: NSObject, BarcodeScanningResponseHandler {
   }
 
   private func addOutputs() {
-    delegate = MetaDataDelegate(
+    let delegate = delegate ?? MetaDataDelegate(
       settings: settings,
       previewLayer: previewLayer,
-      zxingBarcodeReaders: zxingBarcodeReaders,
-      zxingEnabled: zxingEnabled,
+      barcodeProvider: barcodeProvider,
+      barcodeProviderEnabled: barcodeProviderEnabled,
       metadataResultHandler: self)
+    self.delegate = delegate
 
     session.beginConfiguration()
     if metadataOutput == nil {
@@ -125,11 +143,11 @@ class BarcodeScanner: NSObject, BarcodeScanningResponseHandler {
       }
     }
 
-    if videoDataOutput == nil {
+    if barcodeProvider != nil && videoDataOutput == nil {
       let output = AVCaptureVideoDataOutput()
       output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
       output.alwaysDiscardsLateVideoFrames = true
-      output.setSampleBufferDelegate(delegate, queue: zxingCaptureQueue)
+      output.setSampleBufferDelegate(delegate, queue: captureQueue)
       if session.canAddOutput(output) {
         session.addOutput(output)
         videoDataOutput = output
@@ -140,7 +158,10 @@ class BarcodeScanner: NSObject, BarcodeScanningResponseHandler {
 
   private func removeOutputs() {
     session.beginConfiguration()
-    defer { session.commitConfiguration() }
+    defer {
+      session.commitConfiguration()
+      delegate = nil
+    }
 
     if let metadataOutput {
       if session.outputs.contains(metadataOutput) {
@@ -161,4 +182,3 @@ class BarcodeScanner: NSObject, BarcodeScanningResponseHandler {
     self.onBarcodeScanned?(result)
   }
 }
-#endif

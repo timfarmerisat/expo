@@ -22,8 +22,8 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.composeunstyled.TextField
 import com.composeunstyled.TextInput
+import com.composeunstyled.UnstyledTextField
 import expo.modules.devlauncher.compose.models.SettingsAction
 import expo.modules.devlauncher.compose.models.SettingsState
 import expo.modules.devlauncher.compose.ui.DefaultScreenContainer
@@ -72,25 +72,7 @@ fun SettingsScreen(
       )
     }
 
-    NewMenuButton(
-      icon = {
-        LauncherIcons.ShowAtLaunch(
-          size = 20.dp,
-          tint = NewAppTheme.colors.icon.tertiary
-        )
-      },
-      content = {
-        NewText(
-          text = "Show menu at launch"
-        )
-      },
-      rightComponent = {
-        ToggleSwitch(
-          isToggled = state.showMenuAtLaunch
-        )
-      },
-      onClick = { onAction(SettingsAction.ToggleShowMenuAtLaunch(!state.showMenuAtLaunch)) }
-    )
+    LaunchBehaviourSection(state, onAction)
 
     Spacer(NewAppTheme.spacing.`6`)
 
@@ -113,7 +95,7 @@ fun SettingsScreen(
     Spacer(NewAppTheme.spacing.`3`)
 
     NewText(
-      "Filter discovered packagers by the current app's package name or a specific project slug. Only matching development servers will be shown on the home screen.",
+      "Filter discovered packagers by the current app's package name, your Expo account, or a specific project slug. Only matching development servers will be shown on the home screen.",
       style = NewAppTheme.font.md.merge(
         lineHeight = 21.sp
       ),
@@ -128,6 +110,66 @@ fun SettingsScreen(
       runtimeVersion = (info as? ApplicationInfo.Updates)?.runtimeVersion,
       fullDataProvider = { info?.toJson() ?: "No application info available" }
     )
+  }
+}
+
+@Composable
+private fun LaunchBehaviourSection(state: SettingsState, onAction: (SettingsAction) -> Unit) {
+  Column(
+    verticalArrangement = Arrangement.spacedBy(NewAppTheme.spacing.`3`)
+  ) {
+    Section.Header("LAUNCH BEHAVIOUR")
+
+    RoundedSurface {
+      Column {
+        NewMenuButton(
+          withSurface = false,
+          icon = {
+            LauncherIcons.ShowAtLaunch(
+              size = 20.dp,
+              tint = NewAppTheme.colors.icon.tertiary
+            )
+          },
+          content = {
+            NewText(
+              text = "Show menu at launch"
+            )
+          },
+          rightComponent = {
+            ToggleSwitch(
+              isToggled = state.showMenuAtLaunch
+            )
+          },
+          onClick = { onAction(SettingsAction.ToggleShowMenuAtLaunch(!state.showMenuAtLaunch)) }
+        )
+
+        Divider(
+          thickness = 0.5.dp,
+          color = NewAppTheme.colors.border.default
+        )
+
+        NewMenuButton(
+          withSurface = false,
+          icon = {
+            LauncherIcons.ShowAtLaunch(
+              size = 20.dp,
+              tint = NewAppTheme.colors.icon.tertiary
+            )
+          },
+          content = {
+            NewText(
+              text = "Auto-launch most recent app"
+            )
+          },
+          rightComponent = {
+            ToggleSwitch(
+              isToggled = state.autoLaunchMostRecent
+            )
+          },
+          onClick = { onAction(SettingsAction.ToggleAutoLaunchMostRecent(!state.autoLaunchMostRecent)) }
+        )
+      }
+    }
   }
 }
 
@@ -176,7 +218,7 @@ private fun MenuGesturesSection(state: SettingsState, onAction: (SettingsAction)
           },
           content = {
             NewText(
-              text = "3 fingers long press"
+              text = "Three-finger long-press"
             )
           },
           rightComponent = {
@@ -252,6 +294,32 @@ private fun NSDSection(state: SettingsState, onAction: (SettingsAction) -> Unit)
           color = NewAppTheme.colors.border.default
         )
 
+        NewMenuButton(
+          withSurface = false,
+          icon = {
+            LauncherIcons.User(
+              size = 20.dp,
+              tint = NewAppTheme.colors.icon.tertiary
+            )
+          },
+          content = {
+            NewText(
+              text = "Filter by Expo account"
+            )
+          },
+          rightComponent = {
+            ToggleSwitch(
+              isToggled = state.filterByUsername
+            )
+          },
+          onClick = { onAction(SettingsAction.ToggleFilterByUsername(!state.filterByUsername)) }
+        )
+
+        Divider(
+          thickness = 0.5.dp,
+          color = NewAppTheme.colors.border.default
+        )
+
         Column(
           modifier = Modifier
             .background(NewAppTheme.colors.background.subtle)
@@ -274,7 +342,7 @@ private fun NSDSection(state: SettingsState, onAction: (SettingsAction) -> Unit)
             )
           }
 
-          TextField(
+          UnstyledTextField(
             value = state.filterBySlug,
             onValueChange = { newSlug ->
               onAction(SettingsAction.UpdateFilterBySlug(newSlug))
@@ -328,6 +396,7 @@ fun SettingsScreenPreview() {
           projectUrl = "https://u.expo.dev/01980973-2cf9-71fb-a891-a53444132a6e"
         ),
         filterByPackageName = true,
+        filterByUsername = false,
         filterBySlug = "bare-expo"
       )
     )

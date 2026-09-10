@@ -1,10 +1,10 @@
 import { Asset } from 'expo-asset';
-import * as MediaLibrary from 'expo-media-library';
+import * as MediaLibrary from 'expo-media-library/legacy';
 import { Platform } from 'react-native';
 
-import { waitFor } from './helpers';
 import * as TestUtils from '../TestUtils';
 import { isDeviceFarm } from '../utils/Environment';
+import { waitFor } from './helpers';
 
 export const name = 'MediaLibrary';
 
@@ -109,7 +109,7 @@ export async function test(t) {
       ? 30 * 1000
       : t.jasmine.DEFAULT_TIMEOUT_INTERVAL;
 
-  describeWithPermissions('MediaLibrary', async () => {
+  describeWithPermissions('MediaLibrary', () => {
     let files;
     let permissions;
 
@@ -140,7 +140,7 @@ export async function test(t) {
       }
     });
 
-    t.describe('With default assets', async () => {
+    t.describe('With default assets', () => {
       let testAssets;
       let album;
 
@@ -185,7 +185,7 @@ export async function test(t) {
         await cleanupAsync();
       }, TIMEOUT_WHEN_USER_NEEDS_TO_INTERACT);
 
-      t.describe('Every return value has proper shape', async () => {
+      t.describe('Every return value has proper shape', () => {
         t.it('createAssetAsync', () => {
           const keys = Object.keys(testAssets[0]);
           ASSET_KEYS.forEach((key) => t.expect(keys).toContain(key));
@@ -209,9 +209,34 @@ export async function test(t) {
           const keys = Object.keys(value);
           GET_ASSETS_KEYS.forEach((key) => t.expect(keys).toContain(key));
         });
+
+        if (Platform.OS === 'ios') {
+          t.it(
+            'getAssetsAsync includes location even without resolveWithFullInfo',
+            async () => {
+              let exifAsset = null;
+              try {
+                const [exifImage] = await Asset.loadAsync(require('../assets/exif_data_image.jpg'));
+                exifAsset = await MediaLibrary.createAssetAsync(exifImage.localUri, album);
+                const { assets } = await MediaLibrary.getAssetsAsync({ album, first: 20 });
+                const batchAsset = assets.find((asset) => asset.id === exifAsset.id);
+                t.expect(typeof batchAsset.location.latitude).toBe('number');
+                t.expect(typeof batchAsset.location.longitude).toBe('number');
+              } finally {
+                // We delete the asset to ensure other tests that depend on there
+                // being specific numbers of assets won't fail even if this test
+                // fails.
+                if (exifAsset != null) {
+                  await MediaLibrary.deleteAssetsAsync(exifAsset);
+                }
+              }
+            },
+            TIMEOUT_WHEN_USER_NEEDS_TO_INTERACT
+          );
+        }
       });
 
-      t.describe('Small tests', async () => {
+      t.describe('Small tests', () => {
         t.it('Function getAlbums returns test album', async () => {
           const albums = await MediaLibrary.getAlbumsAsync();
           t.expect(albums.filter((elem) => elem.id === album.id).length).toBe(1);
@@ -232,6 +257,16 @@ export async function test(t) {
           const asset = await MediaLibrary.getAssetInfoAsync(WRONG_ID);
           t.expect(asset).toBeNull();
         });
+
+        if (Platform.OS === 'android') {
+          t.it('getAssetContentUriAsync returns content uri', async () => {
+            const asset = testAssets[0];
+            const volume = Platform.Version === 29 ? 'external_primary' : 'external';
+            const contentUri = await MediaLibrary.getAssetContentUriAsync(asset);
+
+            t.expect(contentUri).toBe(`content://media/${volume}/images/media/${asset.id}`);
+          });
+        }
 
         t.it(
           'saveToLibraryAsync should throw when the provided path does not contain an extension',
@@ -272,7 +307,7 @@ export async function test(t) {
         // });
       });
 
-      t.describe('Creating albums with initial assets', async () => {
+      t.describe('Creating albums with initial assets', () => {
         async function cleanupAsync() {
           const album = await MediaLibrary.getAlbumAsync(THIRD_ALBUM_NAME);
           await MediaLibrary.deleteAlbumsAsync([album], true);
@@ -304,7 +339,7 @@ export async function test(t) {
         });
       });
 
-      t.describe('getAssetsAsync', async () => {
+      t.describe('getAssetsAsync', () => {
         t.it('No arguments', async () => {
           const options = {};
           const { assets } = await MediaLibrary.getAssetsAsync(options);
@@ -379,27 +414,28 @@ export async function test(t) {
           });
         });
 
-        t.it('supports sorting in ascending order', async () => {
+        t.it('supports sorting in ascending and descending order', async () => {
           // Get some assets with the largest height.
-          const { assets } = await MediaLibrary.getAssetsAsync({
+          const { assets: descendingAssets } = await MediaLibrary.getAssetsAsync({
             sortBy: [[MediaLibrary.SortBy.height, false]],
           });
 
-          // Set the first and last items in the list
-          const first = assets[0].height;
-          const last = assets[assets.length - 1].height;
+          for (let i = 1; i < descendingAssets.length; i++) {
+            t.expect(descendingAssets[i].height).toBeLessThanOrEqual(
+              descendingAssets[i - 1].height
+            );
+          }
 
           // Repeat assets request but reverse the order.
           const { assets: ascendingAssets } = await MediaLibrary.getAssetsAsync({
             sortBy: [[MediaLibrary.SortBy.height, true]],
           });
 
-          // Set the first and last items in the new list
-          const ascFirst = ascendingAssets[0].height;
-          const ascLast = ascendingAssets[assets.length - 1].height;
-
-          t.expect(ascFirst).toBe(last);
-          t.expect(ascLast).toBe(first);
+          for (let i = 1; i < ascendingAssets.length; i++) {
+            t.expect(ascendingAssets[i].height).toBeGreaterThanOrEqual(
+              ascendingAssets[i - 1].height
+            );
+          }
         });
 
         t.it('supports getting assets from specified time range', async () => {
@@ -432,9 +468,31 @@ export async function test(t) {
             t.expect(asset.creationTime).toBeGreaterThanOrEqual(createdAfter);
           }
         });
+
+        if (Platform.OS === 'android') {
+          t.it('resolveWithFullInfo returns numeric location when available', async () => {
+            const [exifFile] = await Asset.loadAsync(require('../assets/exif_data_image.jpg'));
+            const exifAsset = await MediaLibrary.createAssetAsync(exifFile.localUri, album);
+            try {
+              const { assets } = await MediaLibrary.getAssetsAsync({
+                album,
+                resolveWithFullInfo: true,
+              });
+              const asset = assets.find((a) => a.id === exifAsset.id);
+              t.expect(asset).toBeDefined();
+              t.expect(asset.exif).toBeDefined();
+              t.expect(asset.localUri).toBeDefined();
+              t.expect(asset.location).not.toBeNull();
+              t.expect(typeof asset.location.latitude).toBe('number');
+              t.expect(typeof asset.location.longitude).toBe('number');
+            } finally {
+              await MediaLibrary.deleteAssetsAsync(exifAsset);
+            }
+          });
+        }
       });
 
-      t.describe('getAssetInfoAsync', async () => {
+      t.describe('getAssetInfoAsync', () => {
         t.it('shouldDownloadFromNetwork: false, for photos', async () => {
           const mediaType = MediaLibrary.MediaType.photo;
           const options = { mediaType, album };
@@ -507,7 +565,7 @@ export async function test(t) {
       });
     });
 
-    t.describe('Delete tests', async () => {
+    t.describe('Delete tests', () => {
       t.it(
         'deleteAssetsAsync',
         async () => {
@@ -578,7 +636,7 @@ export async function test(t) {
       );
     });
 
-    t.describe('Listeners', async () => {
+    t.describe('Listeners', () => {
       const createdAssets = [];
 
       t.afterAll(async () => {

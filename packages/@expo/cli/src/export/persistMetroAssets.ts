@@ -12,9 +12,9 @@ import type { AssetData } from '@expo/metro/metro';
 import fs from 'fs';
 import path from 'path';
 
-import { drawableFileTypes, getAssetLocalPath } from './metroAssetLocalPath';
-import { ExportAssetMap } from './saveAssets';
 import { Log } from '../log';
+import { drawableFileTypes, getAssetLocalPath } from './metroAssetLocalPath';
+import type { ExportAssetMap } from './saveAssets';
 
 function cleanAssetCatalog(catalogDir: string): void {
   const files = fs.readdirSync(catalogDir).filter((file) => file.endsWith('.imageset'));
@@ -69,12 +69,7 @@ export async function persistMetroAssetsAsync(
     cleanAssetCatalog(catalogDir);
     for (const asset of assets) {
       if (isCatalogAsset(asset)) {
-        const imageSet = getImageSet(
-          catalogDir,
-          asset,
-          filterPlatformAssetScales(platform, asset.scales)
-        );
-        writeImageSet(imageSet);
+        writeImageSet(getImageSet(catalogDir, asset));
       } else {
         assetsToCopy.push(asset);
       }
@@ -92,9 +87,9 @@ export async function persistMetroAssetsAsync(
   for (const asset of assetsToCopy) {
     const validScales = new Set(filterPlatformAssetScales(platform, asset.scales));
     for (let idx = 0; idx < asset.scales.length; idx++) {
-      const scale = asset.scales[idx];
+      const scale = asset.scales[idx]!;
       if (validScales.has(scale)) {
-        const src = asset.files[idx];
+        const src = asset.files[idx]!;
         const dest = getAssetLocalPath(asset, { platform, scale, baseUrl });
         if (files) {
           const data = await fs.promises.readFile(src);
@@ -176,20 +171,62 @@ type ImageSet = {
   files: { name: string; src: string; scale: number }[];
 };
 
+type CatalogImage = { scale: number; src: string };
+
+/**
+ * Pairs each catalog-valid scale of the asset with its source file.
+ *
+ * If the asset has no valid scale at all (e.g. only a fractional @1.5x
+ * variant), its closest variant is mapped into the nearest valid slot,
+ * mirroring the "closest larger" fallback filterPlatformAssetScales applies
+ * to loose files, so the imageset always contains at least one rendition
+ * actool will compile.
+ */
+export function getCatalogImages(
+  asset: Pick<AssetData, 'name' | 'scales' | 'files'>
+): CatalogImage[] {
+  const images: CatalogImage[] = [];
+  asset.scales.forEach((scale, idx) => {
+    const src = asset.files[idx];
+    if (src && CATALOG_SCALES.includes(scale)) {
+      images.push({ scale, src });
+    }
+  });
+  if (images.length > 0) {
+    return images;
+  }
+
+  let idx = asset.scales.findIndex((scale) => scale > MAX_CATALOG_SCALE);
+  if (idx === -1) {
+    idx = asset.scales.length - 1;
+  }
+  const assetScale = asset.scales[idx];
+  const src = asset.files[idx];
+  if (assetScale === undefined || src === undefined) {
+    return images;
+  }
+
+  const scale = Math.min(MAX_CATALOG_SCALE, Math.max(1, Math.ceil(assetScale)));
+  Log.warn(
+    `Asset "${asset.name}" has no 1x/2x/3x variant; using its @${assetScale}x file as the ${scale}x catalog rendition.`
+  );
+  images.push({ scale, src });
+  return images;
+}
+
 function getImageSet(
   catalogDir: string,
-  asset: Pick<AssetData, 'httpServerLocation' | 'name' | 'type' | 'files'>,
-  scales: number[]
+  asset: Pick<AssetData, 'httpServerLocation' | 'name' | 'type' | 'files' | 'scales'>
 ): ImageSet {
   const fileName = getResourceIdentifier(asset);
   return {
     baseUrl: path.join(catalogDir, `${fileName}.imageset`),
-    files: scales.map((scale, idx) => {
+    files: getCatalogImages(asset).map(({ scale, src }) => {
       const suffix = scale === 1 ? '' : `@${scale}x`;
       return {
         name: `${fileName + suffix}.${asset.type}`,
         scale,
-        src: asset.files[idx],
+        src,
       };
     }),
   };
@@ -210,7 +247,7 @@ export function copyInBatchesAsync(filesToCopy: Record<string, string>) {
       if (queue.length) {
         // queue.length === 0 is checked in previous branch, so this is string
         const src = queue.shift() as string;
-        const dest = filesToCopy[src];
+        const dest = filesToCopy[src]!;
         copy(src, dest, copyNext);
       } else {
         resolve();
@@ -230,12 +267,17 @@ function copy(src: string, dest: string, callback: (error?: NodeJS.ErrnoExceptio
   });
 }
 
+// Scales an iOS asset catalog imageset can hold. actool silently drops
+// renditions at any other scale (e.g. a fractional @1.5x).
+const CATALOG_SCALES = [1, 2, 3];
+const MAX_CATALOG_SCALE = Math.max(...CATALOG_SCALES);
+
 const ALLOWED_SCALES: { [key: string]: number[] } = {
-  ios: [1, 2, 3],
+  ios: CATALOG_SCALES,
 };
 
 export function filterPlatformAssetScales(platform: string, scales: number[]): number[] {
-  const whitelist: number[] = ALLOWED_SCALES[platform];
+  const whitelist: number[] = ALLOWED_SCALES[platform]!;
   if (!whitelist) {
     return scales;
   }
@@ -244,7 +286,7 @@ export function filterPlatformAssetScales(platform: string, scales: number[]): n
     // No matching scale found, but there are some available. Ideally we don't
     // want to be in this situation and should throw, but for now as a fallback
     // let's just use the closest larger image
-    const maxScale = whitelist[whitelist.length - 1];
+    const maxScale = whitelist[whitelist.length - 1]!;
     for (const scale of scales) {
       if (scale > maxScale) {
         result.push(scale);
@@ -254,7 +296,7 @@ export function filterPlatformAssetScales(platform: string, scales: number[]): n
 
     // There is no larger scales available, use the largest we have
     if (!result.length) {
-      result.push(scales[scales.length - 1]);
+      result.push(scales[scales.length - 1]!);
     }
   }
   return result;

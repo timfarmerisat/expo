@@ -1,12 +1,15 @@
 package expo.modules.audio
 
+import android.media.AudioManager
 import android.media.MediaRecorder
 import android.os.Build
 import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
 import expo.modules.kotlin.types.Enumerable
 import java.net.URL
+import expo.modules.kotlin.types.OptimizedRecord
 
+@OptimizedRecord
 class AudioSource(
   @Field val uri: String?,
   @Field val headers: Map<String, String>?,
@@ -19,14 +22,17 @@ enum class LoopMode(val value: String) : Enumerable {
   ALL("all")
 }
 
+@OptimizedRecord
 class AudioMode(
   @Field val shouldPlayInBackground: Boolean = false,
   @Field val shouldRouteThroughEarpiece: Boolean?,
   @Field val interruptionMode: InterruptionMode?,
-  @Field val allowsBackgroundRecording: Boolean = false
+  @Field val allowsBackgroundRecording: Boolean = false,
+  @Field val playsInSilentMode: Boolean = true
 ) : Record
 
 // Data class because we want `equals`
+@OptimizedRecord
 data class RecordingOptions(
   @Field val extension: String,
   @Field val sampleRate: Double?,
@@ -36,9 +42,17 @@ data class RecordingOptions(
   @Field val audioEncoder: AndroidAudioEncoder?,
   @Field val maxFileSize: Int?,
   @Field val isMeteringEnabled: Boolean = false,
-  @Field val audioSource: RecordingSource?
+  @Field val audioSource: RecordingSource?,
+  @Field val directory: RecordingDirectory?,
+  @Field val fileName: String? = null
 ) : Record
 
+enum class RecordingDirectory(val value: String) : Enumerable {
+  CACHE("cache"),
+  DOCUMENT("document")
+}
+
+@OptimizedRecord
 class Metadata(
   @Field val title: String?,
   @Field val artist: String?,
@@ -94,21 +108,48 @@ enum class AndroidAudioEncoder(val value: String) : Enumerable {
   }
 }
 
+@OptimizedRecord
 class AudioLockScreenOptions(
   @Field val showSeekForward: Boolean,
-  @Field val showSeekBackward: Boolean
+  @Field val showSeekBackward: Boolean,
+  @Field val showNextTrack: Boolean = false,
+  @Field val showPreviousTrack: Boolean = false,
+  @Field val isLiveStream: Boolean? = null
 ) : Record
 
 enum class InterruptionMode(val value: String) : Enumerable {
   DO_NOT_MIX("doNotMix"),
+  DO_NOT_MIX_PERSISTENT("doNotMixPersistent"),
   DUCK_OTHERS("duckOthers"),
-  MIX_WITH_OTHERS("mixWithOthers")
+  MIX_WITH_OTHERS("mixWithOthers");
+
+  fun toAudioFocusGain(): Int? = when (this) {
+    DO_NOT_MIX_PERSISTENT -> AudioManager.AUDIOFOCUS_GAIN
+    DO_NOT_MIX -> AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+    DUCK_OTHERS -> AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+    MIX_WITH_OTHERS -> null
+  }
 }
 
+@OptimizedRecord
 class RecordOptions(
   @Field val atTime: Double?,
   @Field val forDuration: Double?
 ) : Record
+
+enum class AudioStreamEncoding(val value: String) : Enumerable {
+  FLOAT32("float32"),
+  INT16("int16")
+}
+
+@OptimizedRecord
+class AudioStreamOptions : Record {
+  @Field var sampleRate: Int = 48000
+
+  @Field var channels: Int = 1
+
+  @Field var encoding: AudioStreamEncoding = AudioStreamEncoding.FLOAT32
+}
 
 enum class RecordingSource(val value: String) : Enumerable {
   CAMCORDER("camcorder"),
@@ -130,4 +171,40 @@ enum class RecordingSource(val value: String) : Enumerable {
     VOICE_PERFORMANCE -> MediaRecorder.AudioSource.VOICE_PERFORMANCE
     VOICE_RECOGNITION -> MediaRecorder.AudioSource.VOICE_RECOGNITION
   }
+}
+
+enum class AudioStreamFileFormat(val value: String) : Enumerable {
+  WAV("wav"),
+  PCM("pcm");
+
+  val fileExtension: String get() = value
+}
+
+@OptimizedRecord
+class AudioStreamFileRecordingOptions : Record {
+  @Field var uri: URL? = null
+
+  @Field var directory: RecordingDirectory? = null
+
+  @Field var format: AudioStreamFileFormat = AudioStreamFileFormat.WAV
+}
+
+@OptimizedRecord
+class AudioStreamFileRecordingStartResult : Record {
+  @Field var uri: URL? = null
+}
+
+@OptimizedRecord
+class AudioStreamFileRecordingResult : Record {
+  @Field var uri: URL? = null
+
+  @Field var duration: Double = 0.0
+
+  @Field var size: Long = 0L
+
+  @Field var sampleRate: Int = 0
+
+  @Field var channels: Int = 0
+
+  @Field var encoding: AudioStreamEncoding = AudioStreamEncoding.FLOAT32
 }

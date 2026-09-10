@@ -1,5 +1,5 @@
-import { RefObject } from 'react';
-import { ViewProps, View } from 'react-native';
+import type { RefObject } from 'react';
+import type { ViewProps, View } from 'react-native';
 
 /**
  * Blur method to use on Android.
@@ -30,6 +30,9 @@ export type BlurViewProps = {
   blurTarget?: RefObject<View | null>;
   /**
    * A tint mode which will be applied to the view.
+   *
+   * > **Note:** Every tint adds a translucent color layer on top of the blur. No value renders the blur alone.
+   *
    * @default 'default'
    */
   tint?: BlurTint;

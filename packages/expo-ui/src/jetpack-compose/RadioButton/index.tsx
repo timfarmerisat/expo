@@ -1,26 +1,47 @@
 import { requireNativeView } from 'expo';
+import type { ColorValue } from 'react-native';
 
-import { type ExpoModifier, type ViewEvent } from '../../types';
+import { type ModifierConfig, type ViewEvent } from '../../types';
 import { createViewModifierEventListener } from '../modifiers/utils';
 
-export type RadioButtonProps = {
+/**
+ * Colors for the radio button in different states.
+ */
+export type RadioButtonColors = {
+  selectedColor?: ColorValue;
+  unselectedColor?: ColorValue;
+  disabledSelectedColor?: ColorValue;
+  disabledUnselectedColor?: ColorValue;
+};
+
+export interface RadioButtonProps {
   /**
    * Whether the radio button is selected.
    */
   selected: boolean;
   /**
+   * Whether the radio button is enabled.
+   * @default true
+   */
+  enabled?: boolean;
+  /**
    * Callback that is called when the radio button is clicked.
    */
   onClick?: () => void;
   /**
+   * Colors for the radio button in different states.
+   */
+  colors?: RadioButtonColors;
+  /**
    * Modifiers for the component.
    */
-  modifiers?: ExpoModifier[];
-};
+  modifiers?: ModifierConfig[];
+}
 
-type NativeRadioButtonProps = Omit<RadioButtonProps, 'onClick'> & {
-  nativeClickable: boolean;
-} & ViewEvent<'onNativeClick', void>;
+type NativeRadioButtonProps = Omit<RadioButtonProps, 'onClick'> &
+  ViewEvent<'onButtonPressed', void> & {
+    clickable: boolean;
+  };
 
 const RadioButtonNativeView: React.ComponentType<NativeRadioButtonProps> = requireNativeView(
   'ExpoUI',
@@ -33,10 +54,8 @@ function transformProps(props: RadioButtonProps): NativeRadioButtonProps {
     modifiers,
     ...(modifiers ? createViewModifierEventListener(modifiers) : undefined),
     ...restProps,
-    nativeClickable: onClick != null,
-    onNativeClick: () => {
-      onClick?.();
-    },
+    clickable: onClick != null,
+    onButtonPressed: () => onClick?.(),
   };
 }
 

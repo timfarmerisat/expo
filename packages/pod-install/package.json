@@ -1,43 +1,51 @@
 {
   "name": "pod-install",
-  "version": "1.0.14",
+  "version": "1.2.0",
   "description": "A fast, zero-dependency package for cutting down on common issues developers have when running pod install.",
-  "main": "./build/index.js",
-  "scripts": {
-    "build": "ncc build ./src/index.ts -o build/",
-    "build:prod": "ncc build ./src/index.ts -o build/ --minify --no-cache --no-source-map-register",
-    "clean": "expo-module clean",
-    "lint": "expo-module lint",
-    "prepare": "expo-module clean && yarn run build:prod",
-    "prepublishOnly": "expo-module prepublishOnly",
-    "typecheck": "expo-module typecheck",
-    "watch": "yarn run build --watch"
-  },
-  "bin": "./build/index.js",
-  "files": [
-    "build"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/expo/expo.git"
-  },
   "keywords": [
     "cocoapods",
-    "pod-install",
+    "ios",
     "npx",
-    "ios"
+    "pod-install"
   ],
-  "author": "Expo <support@expo.dev>",
-  "license": "MIT",
   "homepage": "https://github.com/expo/expo/tree/main/packages/pod-install",
   "bugs": {
     "url": "https://github.com/expo/expo/issues"
   },
+  "license": "MIT",
+  "author": "Expo <support@expo.dev>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/expo/expo.git"
+  },
+  "bin": "./bin/pod-install.js",
+  "files": [
+    "bin",
+    "build"
+  ],
+  "main": "./build/index.js",
+  "exports": {
+    ".": "./build/index.js",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "prebuild": "expo-module clean",
+    "build": "ncc build ./src/index.ts -o build/",
+    "prebuild:prod": "expo-module clean",
+    "build:prod": "ncc build ./src/index.ts -o build/ --minify --no-cache --no-source-map-register",
+    "clean": "expo-module clean",
+    "lint": "oxlint --config oxlint.config.mjs .",
+    "format": "expo-module format",
+    "prepublishOnly": "pnpm run clean && pnpm run build:prod",
+    "depscheck": "expo-module depscheck",
+    "typecheck": "tsc -p tsconfig.json"
+  },
   "devDependencies": {
-    "@expo/package-manager": "^1.10.3",
+    "@expo/package-manager": "workspace:*",
+    "@vercel/ncc": "^0.38.4",
     "chalk": "^4.0.0",
     "commander": "^12.1.0",
-    "expo-module-scripts": "^55.0.2",
+    "expo-module-scripts": "workspace:*",
     "terminal-link": "^2.1.1",
     "update-check": "^1.5.4"
   }

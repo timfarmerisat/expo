@@ -5,8 +5,8 @@ import android.os.Handler
 import android.os.HandlerThread
 import expo.modules.updates.UpdatesConfiguration
 import expo.modules.updates.UpdatesUtils
-import expo.modules.updates.db.DatabaseHolder
 import expo.modules.updates.db.Reaper
+import expo.modules.updates.db.UpdatesDatabase
 import expo.modules.updates.db.entity.AssetEntity
 import expo.modules.updates.db.entity.UpdateEntity
 import expo.modules.updates.launcher.DatabaseLauncher
@@ -17,6 +17,7 @@ import expo.modules.updates.manifest.EmbeddedManifestUtils
 import expo.modules.updates.manifest.ManifestMetadata
 import expo.modules.updates.manifest.Update
 import expo.modules.updates.selectionpolicy.SelectionPolicy
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CoroutineScope
 import org.json.JSONObject
@@ -45,7 +46,7 @@ import java.util.Date
 class LoaderTask(
   private val context: Context,
   private val configuration: UpdatesConfiguration,
-  private val databaseHolder: DatabaseHolder,
+  private val database: UpdatesDatabase,
   private val directory: File,
   private val fileDownloader: FileDownloader,
   private val selectionPolicy: SelectionPolicy,
@@ -189,6 +190,8 @@ class LoaderTask(
           callback.onFinishedAllLoading()
         }
       }
+    } catch (e: CancellationException) {
+      throw e
     } catch (e: Exception) {
       if (!shouldCheckForUpdate) {
         finish(e)
@@ -209,6 +212,8 @@ class LoaderTask(
       isRunning = false
       runReaper()
       callback.onFinishedAllLoading()
+    } catch (e: CancellationException) {
+      throw e
     } catch (e: Exception) {
       finish(e)
       isRunning = false
@@ -276,7 +281,6 @@ class LoaderTask(
   }
 
   private suspend fun launchFallbackUpdateFromDisk() {
-    val database = databaseHolder.database
     val launcher =
       DatabaseLauncher(context, configuration, directory, fileDownloader, selectionPolicy, logger, scope)
     candidateLauncher = launcher
@@ -296,10 +300,12 @@ class LoaderTask(
         )
       ) {
         try {
-          val embeddedLoader = EmbeddedLoader(context, configuration, logger, database, directory)
+          val embeddedLoader = EmbeddedLoader(context, configuration, logger, database, directory, scope)
           embeddedLoader.load { _ ->
             Loader.OnUpdateResponseLoadedResult(shouldDownloadManifestIfPresentInResponse = true)
           }
+        } catch (e: CancellationException) {
+          throw e
         } catch (e: Exception) {
           logger.error("Unexpected error copying embedded update", e, UpdatesErrorCode.Unknown)
         }
@@ -313,9 +319,8 @@ class LoaderTask(
   }
 
   private suspend fun launchRemoteUpdateInBackground() {
-    val database = databaseHolder.database
     callback.onRemoteCheckForUpdateStarted()
-    val remoteLoader = RemoteLoader(context, configuration, logger, database, fileDownloader, directory, candidateLauncher?.launchedUpdate)
+    val remoteLoader = RemoteLoader(context, configuration, logger, database, fileDownloader, directory, candidateLauncher?.launchedUpdate, scope)
 
     remoteLoader.assetLoadProgressBlock = { progress ->
       callback.onRemoteUpdateProgressChanged(progress)
@@ -435,7 +440,6 @@ class LoaderTask(
     synchronized(this@LoaderTask) {
       val finalizedLaunchedUpdate = finalizedLauncher?.launchedUpdate
       if (finalizedLaunchedUpdate != null) {
-        val database = databaseHolder.database
         Reaper.reapUnusedUpdates(
           configuration,
           database,

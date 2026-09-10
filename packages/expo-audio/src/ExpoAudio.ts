@@ -1,9 +1,8 @@
-import { useEvent } from 'expo';
-import { PermissionResponse, useReleasingSharedObject } from 'expo-modules-core';
+import { useEvent, useReleasingSharedObject, type PermissionResponse } from 'expo';
 import { useEffect, useMemo } from 'react';
 import { Platform } from 'react-native';
 
-import {
+import type {
   AudioMode,
   AudioPlayerOptions,
   AudioPlaylistOptions,
@@ -22,7 +21,7 @@ import {
   RECORDING_STATUS_UPDATE,
 } from './AudioEventKeys';
 import AudioModule from './AudioModule';
-import { AudioPlayer, AudioPlaylist, AudioRecorder, AudioSample } from './AudioModule.types';
+import type { AudioPlayer, AudioPlaylist, AudioRecorder, AudioSample } from './AudioModule.types';
 import { createRecordingOptions } from './utils/options';
 import { resolveSource, resolveSources, resolveSourceWithDownload } from './utils/resolveSource';
 
@@ -101,14 +100,16 @@ export function useAudioPlayer(
     downloadFirst = false,
     keepAudioSessionActive = false,
     preferredForwardBufferDuration = 0,
+    allowsExternalPlayback = true,
   } = options;
+  const serializedSource = JSON.stringify(source);
 
   // If downloadFirst is true, we don't need to resolve the source, because it will be resolved in the useEffect below.
   // If downloadFirst is false, we resolve the source here.
   // we call .replace() in the useEffect below to replace the source with the downloaded one.
   const initialSource = useMemo(() => {
     return downloadFirst ? null : resolveSource(source);
-  }, [JSON.stringify(source), downloadFirst]);
+  }, [serializedSource, downloadFirst]);
 
   const player = useReleasingSharedObject(
     () =>
@@ -116,13 +117,15 @@ export function useAudioPlayer(
         initialSource,
         updateInterval,
         keepAudioSessionActive,
-        preferredForwardBufferDuration
+        preferredForwardBufferDuration,
+        allowsExternalPlayback
       ),
     [
       JSON.stringify(initialSource),
       updateInterval,
       keepAudioSessionActive,
       preferredForwardBufferDuration,
+      allowsExternalPlayback,
     ]
   );
 
@@ -158,7 +161,7 @@ export function useAudioPlayer(
     return () => {
       isCancelled = true;
     };
-  }, [player, JSON.stringify(source), downloadFirst]);
+  }, [player, serializedSource, downloadFirst]);
 
   return player;
 }
@@ -334,8 +337,9 @@ export { useAudioRecorderState } from './utils/useAudioRecorderState';
  */
 export function useAudioPlaylist(options: AudioPlaylistOptions = {}): AudioPlaylist {
   const { sources = [], updateInterval = 500, loop = 'none' } = options;
+  const serializedSources = JSON.stringify(sources);
 
-  const resolvedSources = useMemo(() => resolveSources(sources), [JSON.stringify(sources)]);
+  const resolvedSources = useMemo(() => resolveSources(sources), [serializedSources]);
 
   const playlist = useReleasingSharedObject(
     () => new AudioModule.AudioPlaylist(resolvedSources, updateInterval, loop),
@@ -407,13 +411,15 @@ export function createAudioPlayer(
     downloadFirst = false,
     keepAudioSessionActive = false,
     preferredForwardBufferDuration = 0,
+    allowsExternalPlayback = true,
   } = options;
   const initialSource = downloadFirst ? null : resolveSource(source);
   const player = new AudioModule.AudioPlayer(
     initialSource,
     updateInterval,
     keepAudioSessionActive,
-    preferredForwardBufferDuration
+    preferredForwardBufferDuration,
+    allowsExternalPlayback
   );
 
   if (downloadFirst && source) {
@@ -498,6 +504,7 @@ export async function setAudioModeAsync(mode: Partial<AudioMode>): Promise<void>
           shouldRouteThroughEarpiece: mode.shouldRouteThroughEarpiece,
           interruptionMode: mode.interruptionMode ?? mode.interruptionModeAndroid,
           allowsBackgroundRecording: mode.allowsBackgroundRecording,
+          playsInSilentMode: mode.playsInSilentMode,
         };
   return await AudioModule.setAudioModeAsync(audioMode);
 }
@@ -656,5 +663,7 @@ export async function clearAllPreloadedSources(): Promise<void> {
 export async function getPreloadedSources(): Promise<string[]> {
   return AudioModule.getPreloadedSources();
 }
+
+export { useAudioStream } from './AudioStream';
 
 export { AudioModule };

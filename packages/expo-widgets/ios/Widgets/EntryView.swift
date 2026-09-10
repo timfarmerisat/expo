@@ -16,19 +16,20 @@ public struct WidgetsEntryView: View {
     return env
   }
 
-  public var body: some View {
-    let layout = WidgetsStorage.getString(forKey: "__expo_widgets_\(entry.source)_layout") ?? ""
-    let node = evaluateLayout(layout: layout, props: entry.props ?? [:], environment: widgetEnvironment)
+  private var widgetEnvironmentString: String? {
+    guard let data = try? JSONSerialization.data(withJSONObject: widgetEnvironment),
+          let jsonString = String(data: data, encoding: .utf8) else {
+        return nil
+    }
+    return jsonString
+  }
 
-    if let node {
-      if #available(iOS 17.0, *) {
-        WidgetsDynamicView(source: entry.source, kind: .widget, node: node, entryIndex: entry.entryIndex)
-          .containerBackground(.clear, for: .widget)
-      } else {
-        WidgetsDynamicView(source: entry.source, kind: .widget, node: node, entryIndex: entry.entryIndex)
-      }
+  public var body: some View {
+    if let layout = WidgetsLayoutRegistry.layout(for: entry.name) {
+      let node = evaluateLayout(layout: layout, props: entry.props, environment: widgetEnvironment)
+      WidgetsDynamicView(name: entry.name, kind: .widget, node: node, entryIndex: entry.entryIndex, environmentString: widgetEnvironmentString)
     } else {
-      EmptyView()
+      WidgetsDynamicView(name: entry.name, kind: .widget, node: createRedBox(message: "No layout found for \(WidgetsStorage.appGroupIdentifier ?? "")::\(entry.name)"), entryIndex: entry.entryIndex, environmentString: widgetEnvironmentString)
     }
   }
 }

@@ -1,25 +1,29 @@
 import spawnAsync from '@expo/spawn-async';
 import { ExpoRunFormatter } from '@expo/xcpretty';
 import chalk from 'chalk';
-import { spawn, SpawnOptionsWithoutStdio } from 'child_process';
+import type { SpawnOptionsWithoutStdio } from 'child_process';
+import { spawn } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-import { BuildProps, ProjectInfo } from './XcodeBuild.types';
-import { ensureDeviceIsCodeSignedForDeploymentAsync } from './codeSigning/configureCodeSigning';
-import { simulatorBuildRequiresCodeSigning } from './codeSigning/simulatorCodeSigning';
 import * as Log from '../../log';
-import { OSType } from '../../start/platforms/ios/simctl';
+import type { OSType } from '../../start/platforms/ios/simctl';
 import { ensureDirectory } from '../../utils/dir';
 import { env } from '../../utils/env';
 import { AbortCommandError, CommandError } from '../../utils/errors';
 import { getUserTerminal } from '../../utils/terminal';
+import type { BuildProps, ProjectInfo } from './XcodeBuild.types';
+import { ensureDeviceIsCodeSignedForDeploymentAsync } from './codeSigning/configureCodeSigning';
+import { simulatorBuildRequiresCodeSigning } from './codeSigning/simulatorCodeSigning';
 
 // Error messages that indicate concurrent Xcode build failures.
 // When multiple builds run simultaneously, Xcode's build database can become locked.
 const CONCURRENT_BUILD_ERROR_MESSAGE_1 = 'database is locked';
 const CONCURRENT_BUILD_ERROR_MESSAGE_2 = 'there are two concurrent builds running';
+// Xcode prints this after a command fails, but it does not show the cause.
+const XCODE_BUILD_NO_OUTPUT_ERROR_MESSAGE =
+  /error: the following command failed with exit code \d+ but produced no further output/;
 
 /** Get the generic Xcode destination string for a given OS type.
  * Used when building without targeting a specific device (build-only workflow).
@@ -46,19 +50,19 @@ export function matchEstimatedBinaryPath(buildOutput: string): string | null {
   const appBinaryPathMatch = buildOutput.match(
     /(\/(?:\\\s|[^ ])+\/Developer\/Xcode\/DerivedData\/(?:\\\s|[^ ])+\/Build\/Products\/(?:Debug|Release)-(?:[^\s/]+)\/(?:\\\s|[^ ])+\.app)/
   );
-  if (!appBinaryPathMatch?.length) {
+  const pathFiltered = appBinaryPathMatch?.filter((a) => typeof a === 'string' && a);
+  if (!pathFiltered?.length) {
     throw new CommandError(
       'XCODE_BUILD',
       `Malformed xcodebuild results: app binary path was not generated in build output. Report this issue and run your project with Xcode instead.`
     );
   } else {
     // Sort for the shortest
-    const shortestPath = (appBinaryPathMatch.filter((a) => typeof a === 'string' && a) as string[])
+    const shortestPath = pathFiltered
       .sort((a: string, b: string) => a.length - b.length)[0]
-      .trim();
-
+      ?.trim();
     Log.debug(`Found app binary path: ${shortestPath}`);
-    return shortestPath;
+    return shortestPath ?? null;
   }
 }
 /**
@@ -88,9 +92,9 @@ export function getAppBinaryPath(buildOutput: string) {
 
     const binaryPath = path.join(
       // Use the shortest defined env variable (usually there's just one).
-      CONFIGURATION_BUILD_DIR[0],
+      CONFIGURATION_BUILD_DIR[0]!,
       // Use the last defined env variable.
-      UNLOCALIZED_RESOURCES_FOLDER_PATH[UNLOCALIZED_RESOURCES_FOLDER_PATH.length - 1]
+      UNLOCALIZED_RESOURCES_FOLDER_PATH[UNLOCALIZED_RESOURCES_FOLDER_PATH.length - 1]!
     );
 
     // If the app has a space in the name it'll fail because it isn't escaped properly by Xcode.
@@ -123,15 +127,16 @@ export function getEscapedPath(filePath: string): string {
 export function extractEnvVariableFromBuild(buildOutput: string, variableName: string) {
   // Xcode can sometimes escape `=` with a backslash or put the value in quotes
   const reg = new RegExp(`export ${variableName}\\\\?=(.*)$`, 'mg');
-  const matched = [...buildOutput.matchAll(reg)];
-
+  const matched = [...buildOutput.matchAll(reg)]
+    .map((value) => value[1])
+    .filter((value): value is string => !!value);
   if (!matched || !matched.length) {
     throw new CommandError(
       'XCODE_BUILD',
       `Malformed xcodebuild results: "${variableName}" variable was not generated in build output. Report this issue and run your project with Xcode instead.`
     );
   }
-  return matched.map((value) => value[1]).filter(Boolean) as string[];
+  return matched;
 }
 
 export function getProcessOptions({
@@ -216,12 +221,6 @@ export async function getXcodeBuildArgsAsync(
     'COMPILER_INDEX_STORE_ENABLE=NO',
   ];
 
-  // Use -quiet flag to reduce xcodebuild output noise when not in debug/verbose mode.
-  // This reduces output processing overhead and makes logs cleaner.
-  if (!env.EXPO_DEBUG) {
-    args.push('-quiet');
-  }
-
   // Skip code signing setup for generic simulator builds (no device).
   if (
     props.device &&
@@ -275,7 +274,7 @@ function spawnXcodeBuild(
     error += stringData;
   });
 
-  return new Promise(async (resolve, reject) => {
+  return new Promise((resolve, reject) => {
     buildProcess.on('close', (code: number) => {
       resolve({ code, results, error });
     });
@@ -416,21 +415,26 @@ export async function buildAsync(props: BuildProps): Promise<string> {
   const logFilePath = writeBuildLogs(projectRoot, results, error);
 
   if (code !== 0) {
-    // Determine if the logger found any errors;
-    const wasErrorPresented = !!formatter.errors.length;
-
-    if (wasErrorPresented) {
-      // This has a flaw, if the user is missing a file, and there is a script error, only the missing file error will be shown.
-      // They will only see the script error if they fix the missing file and rerun.
-      // The flaw can be fixed by catching script errors in the custom logger.
-      throw new CommandError(
-        `Failed to build iOS project. "xcodebuild" exited with error code ${code}.`
-      );
+    if (_hasXcodeBuildErrorDetails(formatter.errors)) {
+      // The formatter can miss another error, so include the build log path.
+      throw new CommandError(_formatXcodeBuildFailure(code, logFilePath));
     }
 
     _assertXcodeBuildResults(code, results, error, xcodeProject, logFilePath);
   }
   return results;
+}
+
+// Exposed for testing.
+export function _formatXcodeBuildFailure(code: number | null, logFilePath: string): string {
+  return `Failed to build iOS project. "xcodebuild" exited with error code ${code}.\nBuild logs written to ${chalk.underline(
+    logFilePath
+  )}`;
+}
+
+// Exposed for testing.
+export function _hasXcodeBuildErrorDetails(errors: string[]): boolean {
+  return errors.some((error) => !isXcodeBuildNoOutputErrorLine(error));
 }
 
 // Exposed for testing.
@@ -441,13 +445,12 @@ export function _assertXcodeBuildResults(
   xcodeProject: { name: string },
   logFilePath: string
 ): void {
-  const errorTitle = `Failed to build iOS project. "xcodebuild" exited with error code ${code}.`;
+  const errorHeader = _formatXcodeBuildFailure(code, logFilePath);
 
   const throwWithMessage = (message: string): never => {
     throw new CommandError(
-      `${errorTitle}\nTo view more error logs, try building the app with Xcode directly, by opening ${xcodeProject.name}.\n\n` +
-        message +
-        `Build logs written to ${chalk.underline(logFilePath)}`
+      `${errorHeader}\nTo view more error logs, try building the app with Xcode directly, by opening ${xcodeProject.name}.\n\n` +
+        message
     );
   };
 
@@ -456,10 +459,36 @@ export function _assertXcodeBuildResults(
   if (localizedError) {
     throwWithMessage(chalk.bold(localizedError) + '\n\n');
   }
+
+  // `@expo/xcpretty` only reads stdout and can miss some Xcode errors.
+  // Show useful error lines first so CI does not cut them off.
+  const errorLines = _extractXcodeBuildErrorLines(results + '\n' + error);
+  if (errorLines.length) {
+    throwWithMessage(chalk.red(errorLines.join('\n')) + '\n\n' + results + '\n\n' + error);
+  }
+
   // Show all the log info because often times the error is coming from a shell script,
   // that invoked a node script, that started metro, which threw an error.
 
   throwWithMessage(results + '\n\n' + error);
+}
+
+// Exposed for testing.
+export function _extractXcodeBuildErrorLines(output: string): string[] {
+  const seen = new Set<string>();
+  const errors: string[] = [];
+  for (const raw of output.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (/(?:^|\s)error:\s/.test(line) && !seen.has(line)) {
+      seen.add(line);
+      errors.push(line);
+    }
+  }
+  return errors;
+}
+
+function isXcodeBuildNoOutputErrorLine(line: string): boolean {
+  return XCODE_BUILD_NO_OUTPUT_ERROR_MESSAGE.test(line);
 }
 
 function writeBuildLogs(projectRoot: string, buildOutput: string, errorOutput: string) {

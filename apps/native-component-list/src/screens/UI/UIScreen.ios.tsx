@@ -3,6 +3,14 @@ import ComponentListScreen, { componentScreensToListElements } from '../Componen
 
 export const UIScreens = [
   {
+    name: 'Label component',
+    route: 'ui/label',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./LabelScreen'));
+    },
+  },
+  {
     name: 'Button component',
     route: 'ui/button',
     options: {},
@@ -24,6 +32,78 @@ export const UIScreens = [
     options: {},
     getComponent() {
       return optionalRequire(() => require('./DatePickerScreen'));
+    },
+  },
+  {
+    name: 'Community BottomSheet replacement',
+    route: 'ui/community-bottomsheet',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./CommunityBottomSheetScreen'));
+    },
+  },
+  {
+    name: 'Community Picker replacement',
+    route: 'ui/community-picker',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./CommunityPickerScreen'));
+    },
+  },
+  {
+    name: 'Community DateTimePicker replacement',
+    route: 'ui/community-datetimepicker',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./CommunityDateTimePickerScreen'));
+    },
+  },
+  {
+    name: 'Community SegmentedControl replacement',
+    route: 'ui/community-segmented-control',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./CommunitySegmentedControlScreen'));
+    },
+  },
+  {
+    name: 'Community Slider replacement',
+    route: 'ui/community-slider',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./CommunitySliderScreen'));
+    },
+  },
+  {
+    name: 'Community MaskedView replacement',
+    route: 'ui/community-masked-view',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./CommunityMaskedViewScreen'));
+    },
+  },
+  {
+    name: 'Community Menu replacement',
+    route: 'ui/community-menu',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./CommunityMenuScreen'));
+    },
+  },
+  {
+    name: 'Community PagerView replacement',
+    route: 'ui/community-pager-view',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./CommunityPagerViewScreen'));
+    },
+  },
+  {
+    name: 'TabView component',
+    route: 'ui/tabview',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./TabViewScreen'));
     },
   },
   {
@@ -67,11 +147,27 @@ export const UIScreens = [
     },
   },
   {
+    name: 'NavigationStack component',
+    route: 'ui/navigationstack',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./NavigationStackScreen'));
+    },
+  },
+  {
     name: 'Menu component',
     route: 'ui/menu',
     options: {},
     getComponent() {
       return optionalRequire(() => require('./MenuScreen'));
+    },
+  },
+  {
+    name: 'AlertDialog component',
+    route: 'ui/alert-dialog',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./AlertDialogScreen'));
     },
   },
   {
@@ -99,11 +195,11 @@ export const UIScreens = [
     },
   },
   {
-    name: 'TextInput component',
-    route: 'ui/textInput',
+    name: 'TextField component',
+    route: 'ui/textField',
     options: {},
     getComponent() {
-      return optionalRequire(() => require('./TextInputScreen'));
+      return optionalRequire(() => require('./TextFieldScreen'));
     },
   },
   {
@@ -171,6 +267,14 @@ export const UIScreens = [
     },
   },
   {
+    name: 'Swipe Actions',
+    route: 'ui/swipe-actions',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./SwipeActionsScreen'));
+    },
+  },
+  {
     name: 'Animation Modifier',
     route: 'ui/animation-modifier',
     options: {},
@@ -184,6 +288,14 @@ export const UIScreens = [
     options: {},
     getComponent() {
       return optionalRequire(() => require('./ContentTransitionScreen'));
+    },
+  },
+  {
+    name: 'Symbol Effect',
+    route: 'ui/symbol-effect',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./SymbolEffectScreen'));
     },
   },
   {
@@ -203,11 +315,35 @@ export const UIScreens = [
     },
   },
   {
+    name: 'Geometry Group',
+    route: 'ui/geometry-group',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./GeometryGroupScreen'));
+    },
+  },
+  {
+    name: 'LazyVStack / LazyHStack',
+    route: 'ui/lazy-stack',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./LazyStackScreen'));
+    },
+  },
+  {
     name: 'ScrollView component',
     route: 'ui/scrollview',
     options: {},
     getComponent() {
       return optionalRequire(() => require('./ScrollViewScreen'));
+    },
+  },
+  {
+    name: 'ScrollView shared position',
+    route: 'ui/scrollview-shared-position',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./ScrollViewSharedPositionScreen'));
     },
   },
   {
@@ -232,6 +368,38 @@ export const UIScreens = [
     options: {},
     getComponent() {
       return optionalRequire(() => require('./TextScreen'));
+    },
+  },
+  {
+    name: 'Link component',
+    route: 'ui/link',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./LinkScreen'));
+    },
+  },
+  {
+    name: 'Mask component',
+    route: 'ui/mask',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./MaskScreen'));
+    },
+  },
+  {
+    name: 'Overlay component',
+    route: 'ui/overlay',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./OverlayScreen'));
+    },
+  },
+  {
+    name: 'Background component',
+    route: 'ui/background',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./BackgroundScreen'));
     },
   },
   {

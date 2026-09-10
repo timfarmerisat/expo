@@ -66,8 +66,8 @@ CLI tool for all Expo projects. The public interface should be lean, all command
 │   ├── utils/         # Shared utilities
 │   └── whoami/        # `expo whoami` command
 ├── e2e/
-│   ├── __tests__/     # E2E CLI tests (`yarn test:e2e`)
-│   ├── playwright/    # E2E Metro web/server tests (`yarn test:playwright`)
+│   ├── __tests__/     # E2E CLI tests (`pnpm test:e2e`)
+│   ├── playwright/    # E2E Metro web/server tests (`pnpm test:playwright`)
 │   ├── fixtures/      # Test fixtures
 │   └── utils/         # Test utilities
 ├── static/
@@ -85,6 +85,7 @@ CLI tool for all Expo projects. The public interface should be lean, all command
 Read additional resource files:
 
 - ./docs/testing.md - Anything related to testing
+- ./docs/events.md - Anything related to event logging
 
 ## Windows
 
@@ -95,34 +96,38 @@ Windows support requires careful path handling throughout the codebase.
 Metro assumes all module specifiers use POSIX paths (forward slashes `/`). On Windows, `path.sep` is `\` (backslash), which breaks Metro resolution.
 
 **Key utilities:**
+
 - `convertPathToModuleSpecifier(path)` - from `src/start/server/middleware/metroOptions.ts` - converts paths to POSIX format for Metro module resolution
 - `toPosixPath(path)` - from `src/utils/filePath.ts` - general-purpose path conversion
 
 **When to use:**
+
 - Any path passed to Metro as a module specifier
 - Entry points, main module names, relative imports
 - Source map source paths
 
 **Common mistakes to avoid:**
+
 ```ts
 // BAD: Uses platform-specific separator
-'.' + path.sep + moduleName
+'.' + path.sep + moduleName;
 
 // GOOD: Use literal forward slash
-'./' + moduleName
+'./' + moduleName;
 
 // BAD: Passing Windows path to Metro
-metro._resolveRelativePath(moduleId)
+metro._resolveRelativePath(moduleId);
 
 // GOOD: Convert first
-metro._resolveRelativePath(convertPathToModuleSpecifier(moduleId))
+metro._resolveRelativePath(convertPathToModuleSpecifier(moduleId));
 ```
 
 ### Environment Variables
 
 Windows environment variables are case-insensitive at the OS level, but Node.js `process.env` preserves case. Handle both forms when needed:
+
 ```ts
-process.env.SYSTEMROOT ?? process.env.SystemRoot
+process.env.SYSTEMROOT ?? process.env.SystemRoot;
 ```
 
 See `src/utils/open.ts` for an example of handling the `SYSTEMROOT`/`SystemRoot` case sensitivity issue.
@@ -149,35 +154,10 @@ debug('hello');
 ```
 
 **New debugging system:**
-Newer modules use the `events` helper from `src/events/index.ts` to define structured events in JSON format.
-
-```ts
-export const event = events('metro', (t) => [
-  t.event<'example:start', {
-    value: string;
-  }>(),
-]);
-
-event('metro:example:start', { value: 'hello' });
-```
-
-The `events` function accepts a category name and a function that is used to define the event types, but never called.
-When setting `LOG_EVENTS=1` JSONL events will be logged to the standard output, or with `LOG_EVENTS=events.log` events will log to an events.log file.
-This is a faster events system than `debug`, captures structured JSON events, and is scalable, and can be used in any module to add richer debug output.
-
-When creatin a nwe events category, add the `event` function it returns to the `Events` type in `src/events/types.ts` to collect all the events' types in one place:
-
-```
-// Add a new import:
-import type { event as myNewEvent } from '...';
-
-export type Events = collectEventLoggers<[
-  typeof myNewEvent, // Add the imported new event function here
-]>;
-```
+Newer modules use the `events` helper from `src/events` as documented in `./docs/events.md` to define structured events in JSON format.
 
 ## Production
 
 Expo CLI is distributed via npm. Files are intentionally included via the `files` array in the `package.json`, with ignores in the `.npmignore` file.
 
-Production build is performed with `yarn prepublishOnly` -> `yarn prepare` -> `taskr release` which evaluates the `taskfile.js` to bundle code into the root build directory.
+Production build is performed with `pnpm prepublishOnly` -> `taskr release` which evaluates the `taskfile.js` to bundle code into the root build directory.

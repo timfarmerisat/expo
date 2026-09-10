@@ -29,22 +29,22 @@ import type {
   ComponentProps,
   FunctionComponent,
   ReactNode,
-  MutableRefObject,
   AnchorHTMLAttributes,
   MouseEvent,
   ForwardedRef,
 } from 'react';
 import { Text } from 'react-native';
 
-import { PARAM_KEY_SKIP, getComponentIds, getInputString } from './common.js';
-import type { RouteProps } from './common.js';
-import { prefetchRSC, Root, Slot, useRefetch } from './host.js';
 import type { NavigationOptions } from '../../global-state/routing.js';
-import type { Router as ClassicExpoRouterType } from '../../imperative-api';
+import type { ImperativeRouter as ClassicExpoRouterType } from '../../imperative-api';
 import type { LinkProps as ClassicLinkProps, LinkComponent } from '../../link/Link.js';
 import { resolveHref } from '../../link/href';
 import { useInteropClassName, useHrefAttrs } from '../../link/useLinkHooks';
 import type { Href } from '../../types.js';
+import useLatestCallback from '../../utils/useLatestCallback';
+import { PARAM_KEY_SKIP, getComponentIds, getInputString } from './common.js';
+import type { RouteProps } from './common.js';
+import { prefetchRSC, Root, Slot, useRefetch } from './host.js';
 
 const normalizeRoutePath = (path: string) => {
   for (const suffix of ['/', '/index.html']) {
@@ -132,7 +132,13 @@ const InnerRouter = ({ routerData }: { routerData: RouterData }) => {
     });
   }, []);
 
-  const componentIds = getComponentIds(route.path);
+  // TODO: Mint IDs from the active RouteNode's `contextKey` (via expo-router's
+  // RouterStore) so they're group-aware and canonical. Today they're URL-derived
+  // and omit `(group)` segments — the server's iterating resolver bridges this via
+  // optional-group regex matching, but the asymmetry should go away if/when the
+  // canonical-ID convention needs to include groups (e.g. signed skip tokens).
+  const { layouts, page } = getComponentIds(route.path);
+  const componentIds = [...layouts, page];
 
   //  const refetchRoute = () => {
   //   const loc = parseRoute(new URL(getHref()));
@@ -145,62 +151,53 @@ const InnerRouter = ({ routerData }: { routerData: RouterData }) => {
   const [cached, setCached] = useState<Record<string, RouteProps>>(() => {
     return Object.fromEntries(componentIds.map((id) => [id, route]));
   });
-  const cachedRef = useRef(cached);
-  useEffect(() => {
-    cachedRef.current = cached;
-  }, [cached]);
+  const changeRoute: ChangeRoute = useLatestCallback((route, options) => {
+    const { checkCache, skipRefetch } = options || {};
+    startTransition(() => {
+      setRoute(route);
+    });
+    const { layouts, page } = getComponentIds(route.path);
+    const componentIds = [...layouts, page];
+    if (
+      checkCache &&
+      componentIds.every((id) => {
+        const cachedLoc = cached[id];
+        return cachedLoc && equalRouteProps(cachedLoc, route);
+      })
+    ) {
+      return; // everything is cached
+    }
+    const shouldSkip = routerData[0];
+    const skip = getSkipList(shouldSkip, componentIds, route, cached);
+    if (componentIds.every((id) => skip.includes(id))) {
+      return; // everything is skipped
+    }
+    const input = getInputString(route.path);
+    if (!skipRefetch) {
+      refetch(input, JSON.stringify({ query: route.query, skip }));
+    }
+    startTransition(() => {
+      setCached((prev) => ({
+        ...prev,
+        ...Object.fromEntries(
+          componentIds.flatMap((id) => (skip.includes(id) ? [] : [[id, route]]))
+        ),
+      }));
+    });
+  });
 
-  const changeRoute: ChangeRoute = useCallback(
-    (route, options) => {
-      const { checkCache, skipRefetch } = options || {};
-      startTransition(() => {
-        setRoute(route);
-      });
-      const componentIds = getComponentIds(route.path);
-      if (
-        checkCache &&
-        componentIds.every((id) => {
-          const cachedLoc = cachedRef.current[id];
-          return cachedLoc && equalRouteProps(cachedLoc, route);
-        })
-      ) {
-        return; // everything is cached
-      }
-      const shouldSkip = routerData[0];
-      const skip = getSkipList(shouldSkip, componentIds, route, cachedRef.current);
-      if (componentIds.every((id) => skip.includes(id))) {
-        return; // everything is skipped
-      }
-      const input = getInputString(route.path);
-      if (!skipRefetch) {
-        refetch(input, JSON.stringify({ query: route.query, skip }));
-      }
-      startTransition(() => {
-        setCached((prev) => ({
-          ...prev,
-          ...Object.fromEntries(
-            componentIds.flatMap((id) => (skip.includes(id) ? [] : [[id, route]]))
-          ),
-        }));
-      });
-    },
-    [refetch, routerData]
-  );
-
-  const prefetchRoute: PrefetchRoute = useCallback(
-    (route) => {
-      const componentIds = getComponentIds(route.path);
-      const shouldSkip = routerData[0];
-      const skip = getSkipList(shouldSkip, componentIds, route, cachedRef.current);
-      if (componentIds.every((id) => skip.includes(id))) {
-        return; // everything is cached
-      }
-      const input = getInputString(route.path);
-      prefetchRSC(input, JSON.stringify({ query: route.query, skip }));
-      (globalThis as any).__EXPO_ROUTER_PREFETCH__?.(route.path);
-    },
-    [routerData]
-  );
+  const prefetchRoute: PrefetchRoute = useLatestCallback((route) => {
+    const { layouts, page } = getComponentIds(route.path);
+    const componentIds = [...layouts, page];
+    const shouldSkip = routerData[0];
+    const skip = getSkipList(shouldSkip, componentIds, route, cached);
+    if (componentIds.every((id) => skip.includes(id))) {
+      return; // everything is cached
+    }
+    const input = getInputString(route.path);
+    prefetchRSC(input, JSON.stringify({ query: route.query, skip }));
+    (globalThis as any).__EXPO_ROUTER_PREFETCH__?.(route.path);
+  });
 
   useEffect(() => {
     const callback = () => {
@@ -257,8 +254,7 @@ const InnerRouter = ({ routerData }: { routerData: RouterData }) => {
   });
 
   const children = componentIds.reduceRight(
-    (acc: ReactNode, id) =>
-      createElement(RouterSlot, { route, routerData, cachedRef, id, fallback: acc }, acc),
+    (acc: ReactNode, id) => createElement(Slot, { id, fallback: acc }, acc),
     null
   );
 
@@ -380,29 +376,6 @@ export function useRouter_UNSTABLE(): ClassicExpoRouterType &
     prefetch,
   };
 }
-
-const RouterSlot = ({
-  route,
-  routerData,
-  cachedRef,
-  id,
-  fallback,
-  children,
-}: {
-  route: RouteProps;
-  routerData: RouterData;
-  cachedRef: MutableRefObject<Record<string, RouteProps>>;
-  id: string;
-  fallback?: ReactNode;
-  children?: ReactNode;
-}) => {
-  // const unstable_shouldRenderPrev = (_err: unknown) => {
-  //   const shouldSkip = routerData[0];
-  //   const skip = getSkipList(shouldSkip, [id], route, cachedRef.current);
-  //   return skip.length > 0;
-  // };
-  return createElement(Slot, { id, fallback }, children);
-};
 
 const getSkipList = (
   shouldSkip: ShouldSkip | undefined,

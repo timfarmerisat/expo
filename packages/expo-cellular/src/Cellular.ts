@@ -1,14 +1,9 @@
-import {
-  createPermissionHook,
-  PermissionStatus,
-  Platform,
-  UnavailabilityError,
-} from 'expo-modules-core';
+import { createPermissionHook, PermissionStatus, Platform, UnavailabilityError } from 'expo';
 
-import { CellularGeneration, PermissionResponse } from './Cellular.types';
+import type { PermissionResponse, CellularGeneration } from './Cellular.types';
 import ExpoCellular from './ExpoCellular';
 
-export { CellularGeneration };
+export { CellularGeneration } from './Cellular.types';
 
 // @needsAudit
 /**
@@ -20,8 +15,8 @@ export { CellularGeneration };
  *
  * On web, this method uses [`navigator.connection.effectiveType`](https://developer.mozilla.org/en-US/docs/Web/API/NetworkInformation/effectiveType)
  * to detect the effective type of the connection using a combination of recently observed
- * round-trip time and downlink values. See [here](https://developer.mozilla.org/en-US/docs/Web/API/Network_Information_API)
- * to view browser compatibility.
+ * round-trip time and downlink values. See the [Network Information API](https://developer.mozilla.org/en-US/docs/Web/API/Network_Information_API)
+ * documentation for browser compatibility.
  *
  * @example
  * ```ts
@@ -34,34 +29,6 @@ export async function getCellularGenerationAsync(): Promise<CellularGeneration> 
     throw new UnavailabilityError('expo-cellular', 'getCellularGenerationAsync');
   }
   return await ExpoCellular.getCellularGenerationAsync();
-}
-
-/**
- * @return Returns if the carrier allows making VoIP calls on its network. On Android, this checks whether
- * the system supports SIP-based VoIP API. See [here](https://developer.android.com/reference/android/net/sip/SipManager.html#isVoipSupported(android.content.Context))
- * to view more information.
- *
- * On iOS, if you configure a device for a carrier and then remove the SIM card, this property
- * retains the `boolean` value indicating the carrier’s policy regarding VoIP. If you then install
- * a new SIM card, its VoIP policy `boolean` replaces the previous value of this property.
- *
- * On iOS and web, this returns `null`.
- *
- * @platform android
- *
- * @example
- * ```ts
- * await Cellular.allowsVoipAsync(); // true or false
- * ```
- */
-export async function allowsVoipAsync(): Promise<boolean | null> {
-  if (Platform.OS === 'ios') {
-    return null;
-  }
-  if (!ExpoCellular.allowsVoipAsync) {
-    throw new UnavailabilityError('expo-cellular', 'allowsVoipAsync');
-  }
-  return await ExpoCellular.allowsVoipAsync();
 }
 
 /**

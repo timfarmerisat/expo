@@ -1,6 +1,16 @@
 import { Fragment } from './react-stub';
 
-function ReactElement(type: typeof ReactElement, key: string | null, props: Record<string, any>) {
+export type ReactElementNode = {
+  type: unknown;
+  key: string | null;
+  props: Record<string, any>;
+};
+
+function ReactElement(
+  type: unknown,
+  key: string | null,
+  props: Record<string, any>
+): ReactElementNode {
   if (typeof type === 'function') {
     return (type as any)(props);
   }
@@ -14,7 +24,11 @@ function ReactElement(type: typeof ReactElement, key: string | null, props: Reco
   return element;
 }
 
-function jsxProd(type: typeof ReactElement, config: any, maybeKey?: string | number | bigint) {
+function jsxProd(
+  type: unknown,
+  config: any,
+  maybeKey?: string | number | bigint
+): ReactElementNode {
   let key = null;
   if (maybeKey !== undefined) {
     key = '' + maybeKey;
@@ -33,6 +47,13 @@ function jsxProd(type: typeof ReactElement, config: any, maybeKey?: string | num
         props[propName] = config[propName];
       }
     }
+  }
+
+  // React flattens nested children arrays (e.g. a `.map()` result mixed with sibling
+  // elements) during reconciliation. There is no reconciler here - the element tree is
+  // serialized for the native widget parsers, which expect a flat children list.
+  if (Array.isArray(props.children)) {
+    props.children = props.children.flat(Infinity);
   }
 
   return ReactElement(type, key, props);

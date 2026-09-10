@@ -196,10 +196,10 @@ public final class SQLiteModule: Module {
 
       // swiftlint:disable line_length
 
-      AsyncFunction("runAsync") { (statement: NativeStatement, database: NativeDatabase, bindParams: [String: Any], bindBlobParams: [String: NativeArrayBuffer], shouldPassAsArray: Bool) -> [String: Any] in
+      AsyncFunction("runAsync") { (statement: NativeStatement, database: NativeDatabase, bindParams: [String: Any], bindBlobParams: [String: ArrayBuffer], shouldPassAsArray: Bool) -> [String: Any] in
         return try run(statement: statement, database: database, bindParams: bindParams, bindBlobParams: bindBlobParams, shouldPassAsArray: shouldPassAsArray)
       }.runOnQueue(moduleQueue)
-      Function("runSync") { (statement: NativeStatement, database: NativeDatabase, bindParams: [String: Any], bindBlobParams: [String: JavaScriptArrayBuffer], shouldPassAsArray: Bool) -> [String: Any] in
+      Function("runSync") { (statement: NativeStatement, database: NativeDatabase, bindParams: [String: Any], bindBlobParams: [String: ArrayBuffer], shouldPassAsArray: Bool) -> [String: Any] in
         return try run(statement: statement, database: database, bindParams: bindParams, bindBlobParams: bindBlobParams, shouldPassAsArray: shouldPassAsArray)
       }
 
@@ -270,31 +270,31 @@ public final class SQLiteModule: Module {
         try sessionClose(database: database, session: session)
       }
 
-      AsyncFunction("createChangesetAsync") { (session: NativeSession, database: NativeDatabase) -> NativeArrayBuffer in
+      AsyncFunction("createChangesetAsync") { (session: NativeSession, database: NativeDatabase) -> ArrayBuffer in
         return try sessionCreateChangeset(database: database, session: session)
       }.runOnQueue(moduleQueue)
-      Function("createChangesetSync") { (session: NativeSession, database: NativeDatabase) -> NativeArrayBuffer in
+      Function("createChangesetSync") { (session: NativeSession, database: NativeDatabase) -> ArrayBuffer in
         return try sessionCreateChangeset(database: database, session: session)
       }
 
-      AsyncFunction("createInvertedChangesetAsync") { (session: NativeSession, database: NativeDatabase) -> NativeArrayBuffer in
+      AsyncFunction("createInvertedChangesetAsync") { (session: NativeSession, database: NativeDatabase) -> ArrayBuffer in
         return try sessionCreateInvertedChangeset(database: database, session: session)
       }.runOnQueue(moduleQueue)
-      Function("createInvertedChangesetSync") { (session: NativeSession, database: NativeDatabase) -> NativeArrayBuffer in
+      Function("createInvertedChangesetSync") { (session: NativeSession, database: NativeDatabase) -> ArrayBuffer in
         return try sessionCreateInvertedChangeset(database: database, session: session)
       }
 
-      AsyncFunction("applyChangesetAsync") { (session: NativeSession, database: NativeDatabase, changeset: NativeArrayBuffer) in
+      AsyncFunction("applyChangesetAsync") { (session: NativeSession, database: NativeDatabase, changeset: ArrayBuffer) in
         try sessionApplyChangeset(database: database, session: session, changeset: changeset)
       }.runOnQueue(moduleQueue)
-      Function("applyChangesetSync") { (session: NativeSession, database: NativeDatabase, changeset: JavaScriptArrayBuffer) in
+      Function("applyChangesetSync") { (session: NativeSession, database: NativeDatabase, changeset: ArrayBuffer) in
         try sessionApplyChangeset(database: database, session: session, changeset: changeset)
       }
 
-      AsyncFunction("invertChangesetAsync") { (session: NativeSession, database: NativeDatabase, changeset: NativeArrayBuffer) -> NativeArrayBuffer in
+      AsyncFunction("invertChangesetAsync") { (session: NativeSession, database: NativeDatabase, changeset: ArrayBuffer) -> ArrayBuffer in
         return try sessionInvertChangeset(database: database, session: session, changeset: changeset)
       }.runOnQueue(moduleQueue)
-      Function("invertChangesetSync") { (session: NativeSession, database: NativeDatabase, changeset: JavaScriptArrayBuffer) -> NativeArrayBuffer in
+      Function("invertChangesetSync") { (session: NativeSession, database: NativeDatabase, changeset: ArrayBuffer) -> ArrayBuffer in
         return try sessionInvertChangeset(database: database, session: session, changeset: changeset)
       }
     }
@@ -385,7 +385,7 @@ public final class SQLiteModule: Module {
 
   // swiftlint:disable line_length
 
-  private func run(statement: NativeStatement, database: NativeDatabase, bindParams: [String: Any], bindBlobParams: [String: ArrayBuffer], shouldPassAsArray: Bool) throws -> [String: Any] {
+  private func run(statement: NativeStatement, database: NativeDatabase, bindParams: [String: Any], bindBlobParams: [String: any AnyArrayBuffer], shouldPassAsArray: Bool) throws -> [String: Any] {
     try maybeThrowForClosedDatabase(database)
     try maybeThrowForFinalizedStatement(statement)
 
@@ -428,6 +428,13 @@ public final class SQLiteModule: Module {
   private func step(statement: NativeStatement, database: NativeDatabase) throws -> SQLiteColumnValues? {
     try maybeThrowForClosedDatabase(database)
     try maybeThrowForFinalizedStatement(statement)
+
+    // Guard the stateful statement, see `run` above.
+    statement.lock.wait()
+    defer {
+      statement.lock.signal()
+    }
+
     let ret = exsqlite3_step(statement.pointer)
     if ret == SQLITE_ROW {
       return try getColumnValues(statement: statement)
@@ -441,6 +448,13 @@ public final class SQLiteModule: Module {
   private func getAll(statement: NativeStatement, database: NativeDatabase) throws -> [SQLiteColumnValues] {
     try maybeThrowForClosedDatabase(database)
     try maybeThrowForFinalizedStatement(statement)
+
+    // Guard the stateful statement, see `run` above.
+    statement.lock.wait()
+    defer {
+      statement.lock.signal()
+    }
+
     var columnValuesList: [SQLiteColumnValues] = []
     while true {
       let ret = exsqlite3_step(statement.pointer)
@@ -459,6 +473,13 @@ public final class SQLiteModule: Module {
   private func reset(statement: NativeStatement, database: NativeDatabase) throws {
     try maybeThrowForClosedDatabase(database)
     try maybeThrowForFinalizedStatement(statement)
+
+    // Guard the stateful statement, see `run` above.
+    statement.lock.wait()
+    defer {
+      statement.lock.signal()
+    }
+
     if exsqlite3_reset(statement.pointer) != SQLITE_OK {
       throw SQLiteErrorException(convertSqlLiteErrorToString(database))
     }
@@ -467,6 +488,13 @@ public final class SQLiteModule: Module {
   private func finalize(statement: NativeStatement, database: NativeDatabase) throws {
     try maybeThrowForClosedDatabase(database)
     try maybeThrowForFinalizedStatement(statement)
+
+    // Guard the stateful statement, see `run` above.
+    statement.lock.wait()
+    defer {
+      statement.lock.signal()
+    }
+
     if exsqlite3_finalize(statement.pointer) != SQLITE_OK {
       throw SQLiteErrorException(convertSqlLiteErrorToString(database))
     }
@@ -516,16 +544,7 @@ public final class SQLiteModule: Module {
       return
     }
     let path = try ensureDatabasePathExists(path: databasePath).toFilePath()
-
-    if !FileManager.default.fileExists(atPath: path) {
-      throw DatabaseNotFoundException(path)
-    }
-
-    do {
-      try FileManager.default.removeItem(atPath: path)
-    } catch {
-      throw DeleteDatabaseFileException(path)
-    }
+    try DatabaseFileUtils.deleteDatabaseFiles(atPath: path)
   }
 
   private func backupDatabase(destDatabase: NativeDatabase, destDatabaseName: String, sourceDatabase: NativeDatabase, sourceDatabaseName: String) throws {
@@ -615,10 +634,10 @@ public final class SQLiteModule: Module {
       return String(cString: text)
     case SQLITE_BLOB:
       guard let blob = exsqlite3_column_blob(instance, index) else {
-        return NativeArrayBuffer.allocate(size: 0)
+        return ArrayBuffer(size: 0)
       }
       let size = exsqlite3_column_bytes(instance, index)
-      return NativeArrayBuffer.copy(of: blob, count: Int(size))
+      return ArrayBuffer.copy(of: blob, count: Int(size))
     case SQLITE_NULL:
       return NSNull()
     default:
@@ -639,7 +658,7 @@ public final class SQLiteModule: Module {
       exsqlite3_bind_double(instance, index, param)
     case let param as String:
       exsqlite3_bind_text(instance, index, param, -1, SQLITE_TRANSIENT)
-    case let param as ArrayBuffer:
+    case let param as any AnyArrayBuffer:
       _ = param.withUnsafeBytes {
         exsqlite3_bind_blob(instance, index, $0.baseAddress, Int32(param.byteLength), SQLITE_TRANSIENT)
       }
@@ -762,7 +781,7 @@ public final class SQLiteModule: Module {
     exsqlite3session_delete(session.pointer)
   }
 
-  private func sessionCreateChangeset(database: NativeDatabase, session: NativeSession) throws -> NativeArrayBuffer {
+  private func sessionCreateChangeset(database: NativeDatabase, session: NativeSession) throws -> ArrayBuffer {
     try maybeThrowForClosedDatabase(database)
     var size: Int32 = 0
     var buffer: UnsafeMutableRawPointer?
@@ -770,13 +789,13 @@ public final class SQLiteModule: Module {
       throw SQLiteErrorException(convertSqlLiteErrorToString(database))
     }
     guard let buffer else {
-      return NativeArrayBuffer.allocate(size: 0)
+      return ArrayBuffer(size: 0)
     }
     defer { exsqlite3_free(buffer) }
-    return NativeArrayBuffer.copy(of: buffer, count: Int(size))
+    return ArrayBuffer.copy(of: buffer, count: Int(size))
   }
 
-  private func sessionCreateInvertedChangeset(database: NativeDatabase, session: NativeSession) throws -> NativeArrayBuffer {
+  private func sessionCreateInvertedChangeset(database: NativeDatabase, session: NativeSession) throws -> ArrayBuffer {
     do {
       let changeset = try sessionCreateChangeset(database: database, session: session)
       return try sessionInvertChangeset(database: database, session: session, changeset: changeset)
@@ -785,7 +804,7 @@ public final class SQLiteModule: Module {
     }
   }
 
-  private func sessionApplyChangeset(database: NativeDatabase, session: NativeSession, changeset: ArrayBuffer) throws {
+  private func sessionApplyChangeset(database: NativeDatabase, session: NativeSession, changeset: some AnyArrayBuffer) throws {
     try maybeThrowForClosedDatabase(database)
     try changeset.withUnsafeBytes {
       let buffer = UnsafeMutableRawPointer(mutating: $0.baseAddress)
@@ -804,7 +823,7 @@ public final class SQLiteModule: Module {
     }
   }
 
-  private func sessionInvertChangeset(database: NativeDatabase, session: NativeSession, changeset: ArrayBuffer) throws -> NativeArrayBuffer {
+  private func sessionInvertChangeset(database: NativeDatabase, session: NativeSession, changeset: some AnyArrayBuffer) throws -> ArrayBuffer {
     try maybeThrowForClosedDatabase(database)
     return try changeset.withUnsafeBytes {
       let inBuffer = UnsafeMutableRawPointer(mutating: $0.baseAddress)
@@ -815,10 +834,10 @@ public final class SQLiteModule: Module {
         throw SQLiteErrorException(convertSqlLiteErrorToString(database))
       }
       guard let outBuffer else {
-        return NativeArrayBuffer.allocate(size: 0)
+        return ArrayBuffer(size: 0)
       }
       defer { exsqlite3_free(outBuffer) }
-      return NativeArrayBuffer.copy(of: outBuffer, count: Int(outSize))
+      return ArrayBuffer.copy(of: outBuffer, count: Int(outSize))
     }
   }
 }

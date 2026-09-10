@@ -17,12 +17,20 @@ public class BackgroundEventTransformer {
 
     // the payload is emitted as a JSON string for alignment with Android
     let jsonData: String? = {
-      do {
-        if let bodyDict = payload["body"] {
-          let data = try JSONSerialization.data(withJSONObject: bodyDict, options: [])
-          return String(data: data, encoding: .utf8)
-        }
+      guard let body = payload["body"] else {
         return nil
+      }
+      // Primitive string bodies are used directly; JSONSerialization only accepts
+      // NSDictionary / NSArray at the top level and throws NSException otherwise.
+      if let bodyString = body as? String {
+        return bodyString
+      }
+      guard JSONSerialization.isValidJSONObject(body) else {
+        return nil
+      }
+      do {
+        let data = try JSONSerialization.data(withJSONObject: body, options: [])
+        return String(data: data, encoding: .utf8)
       } catch {
         return nil
       }
@@ -36,8 +44,13 @@ public class BackgroundEventTransformer {
     if let aps = payload["aps"] as? [String: Any] {
       result["aps"] = aps
       result["notification"] = aps["alert"] ?? NSNull()
-      if let category = aps["category"] as? String, var data = result["data"] as? [String: Any] {
-        data["categoryId"] = category
+      if var data = result["data"] as? [String: Any] {
+        if let category = aps["category"] as? String {
+          data["categoryId"] = category
+        }
+        if let threadId = aps["thread-id"] as? String {
+          data["threadIdentifier"] = threadId
+        }
         result["data"] = data
       }
     }

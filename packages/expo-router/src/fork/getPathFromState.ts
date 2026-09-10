@@ -1,10 +1,11 @@
-import { PathConfig, PathConfigMap } from '@react-navigation/native';
-import type { NavigationState, PartialState, Route } from '@react-navigation/routers';
 import * as queryString from 'query-string';
 
+import { removeInternalExpoRouterParams } from '../navigationParams';
+import type { PathConfig, PathConfigMap } from '../react-navigation/native';
+import type { NavigationState, PartialState, Route } from '../react-navigation/routers';
 import * as expo from './getPathFromState-forks';
 import type { ExpoConfigItem, ExpoOptions } from './getPathFromState-forks';
-import { removeInternalExpoRouterParams } from '../navigationParams';
+import { validatePathConfig } from './validatePathConfig';
 
 // START FORK
 export type Options<ParamList extends object> = ExpoOptions & {
@@ -28,9 +29,7 @@ type ConfigItem = ExpoConfigItem & {
 
 const getActiveRoute = (state: State): { name: string; params?: object } => {
   const route =
-    typeof state.index === 'number'
-      ? state.routes[state.index]
-      : state.routes[state.routes.length - 1];
+    state.index != null ? state.routes[state.index]! : state.routes[state.routes.length - 1]!;
 
   if (route.state) {
     return getActiveRoute(route.state);
@@ -89,10 +88,7 @@ export function getPathDataFromState<ParamList extends object>(
   }
 
   if (options) {
-    // START FORK
-    expo.validatePathConfig(options);
-    // validatePathConfig(options);
-    // END FORK
+    validatePathConfig(options);
   }
 
   // Create a normalized configs object which will be easier to use
@@ -127,7 +123,7 @@ export function getPathDataFromState<ParamList extends object>(
     let hasNext = true;
 
     while (route.name in currentOptions && hasNext) {
-      pattern = currentOptions[route.name].pattern;
+      pattern = currentOptions[route.name]!.pattern;
 
       nestedRouteNames.push(route.name);
 
@@ -172,61 +168,16 @@ export function getPathDataFromState<ParamList extends object>(
       }
 
       // If there is no `screens` property or no nested state, we return pattern
-      if (!currentOptions[route.name].screens || route.state === undefined) {
-        // START FORK
-        // Expo Router allows you to navigate to a (group) and not specify a target screen
-        // This is different from React Navigation, which requires a target screen
-        // We need to handle this case here, by selecting either the index screen or the first screen of the group
-
-        // IMPORTANT: This does not affect groups that use _layout files with initialRouteNames
-        // Layout files create a new route config. This only affects groups without layouts that have their screens
-        // hoisted.
-
-        // Example:
-        // - /home/_layout
-        // - /home/(a|b|c)/index          --> Hoisted to /home/_layout navigator
-        // - /home/(a|b|c)/other          --> Hoisted to /home/_layout navigator
-        // - /home/(profile)/me           --> Hoisted to /home/_layout navigator
-        //
-        // route.push('/home/(a)')        --> This should navigate to /home/(a)/index
-        // route.push('/home/(profile)')  --> This should navigate to /home/(profile)/me
-        const screens = currentOptions[route.name].screens;
-
-        // Determine what screen the user wants to navigate to. If no screen is specified, assume there is an index screen
-        // In the examples above, this ensures that /home/(a) navigates to /home/(a)/index
-        const targetScreen =
-          // This is typed as unknown, so we need to add these extra assertions
-          route.params && 'screen' in route.params && typeof route.params.screen === 'string'
-            ? route.params.screen
-            : 'index';
-
-        // If the target screen is not in the screens object, default to the first screen
-        // In the examples above, this ensures that /home/(profile) navigates to /home/(profile)/me
-        // As there is no index screen in the group
-        const screen = screens
-          ? screens[targetScreen]
-            ? targetScreen
-            : Object.keys(screens)[0]
-          : undefined;
-
-        if (screen && screens && currentOptions[route.name].screens?.[screen]) {
-          const nestedParams = (route.params as { params?: object } | undefined)?.params;
-          route = { ...screens[screen], name: screen, key: screen, params: nestedParams };
-          currentOptions = screens;
-        } else {
-          hasNext = false;
-        }
-        // hasNext = false;
-        // END FORK
+      if (!currentOptions[route.name]!.screens || route.state === undefined) {
+        hasNext = false;
       } else {
-        index =
-          typeof route.state.index === 'number' ? route.state.index : route.state.routes.length - 1;
+        index = route.state.index != null ? route.state.index : route.state.routes.length - 1;
 
-        const nextRoute = route.state.routes[index];
-        const nestedConfig = currentOptions[route.name].screens;
+        const nextRoute = route.state.routes[index]!;
+        const nestedConfig = currentOptions[route.name]!.screens;
 
         // if there is config for next route name, we go deeper
-        if (nestedConfig && nextRoute.name in nestedConfig) {
+        if (nestedConfig && nextRoute!.name in nestedConfig) {
           route = nextRoute as Route<string> & { state?: State };
           currentOptions = nestedConfig;
         } else {
@@ -287,7 +238,7 @@ export function getPathDataFromState<ParamList extends object>(
     // END FORK
 
     if (!focusedParams) {
-      focusedParams = focusedRoute.params;
+      focusedParams = focusedRoute.params ? { ...focusedRoute.params } : undefined;
     }
 
     if (route.state) {

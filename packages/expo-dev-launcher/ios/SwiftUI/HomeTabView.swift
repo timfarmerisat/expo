@@ -55,13 +55,21 @@ struct HomeTabView: View {
         }
         .padding()
       }
+      #if !os(tvOS)
+      .refreshable {
+        await viewModel.refreshDevServers()
+      }
+      #endif
     }
     #if os(tvOS)
     .background()
     #endif
-    .overlay(
-      DevServerInfoModal(showingInfoDialog: $showingInfoDialog)
-    )
+    .onAppear {
+      viewModel.loadRecentlyOpenedApps()
+    }
+    .sheet(isPresented: $showingInfoDialog) {
+      DevServerInfoModal()
+    }
   }
 
   private var crashReportBanner: some View {
@@ -115,9 +123,5 @@ struct NetworkPermissionsBanner: View {
     .background(Color.expoSecondarySystemGroupedBackground)
     .cornerRadius(18)
   }
-}
-
-#Preview {
-  HomeTabView()
 }
 // swiftlint:enable closure_body_length

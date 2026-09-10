@@ -2,8 +2,8 @@
 
 #import <ExpoGL/EXGLContext.h>
 #import <ExpoGL/EXGLObjectManager.h>
-
 #import <ExpoModulesCore/EXUtilities.h>
+
 
 #import <React/RCTLog.h>
 
@@ -15,7 +15,6 @@
 @interface EXGLContext ()
 
 @property (nonatomic, strong) dispatch_queue_t glQueue;
-@property (nonatomic, weak) EXJavaScriptRuntime *runtime;
 @property (nonatomic, weak) id<EXFileSystemInterface> fileSystemManager;
 @property (nonatomic, assign) BOOL isContextReady;
 @property (nonatomic, assign) BOOL wasPrepareCalled;
@@ -26,13 +25,11 @@
 @implementation EXGLContext
 
 - (nonnull instancetype)initWithDelegate:(id<EXGLContextDelegate>)delegate
-                                 runtime:(nullable EXJavaScriptRuntime *)runtime
                               fileSystem:(nullable id<EXFileSystemInterface>)fileSystemManager
 {
   if (self = [super init]) {
     self.delegate = delegate;
 
-    _runtime = runtime;
     _fileSystemManager = fileSystemManager;
     _glQueue = dispatch_queue_create("host.exp.gl", DISPATCH_QUEUE_SERIAL);
     _eaglCtx = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3] ?: [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
@@ -101,42 +98,32 @@
   [self flush];
 }
 
-- (void)prepare:(void(^)(BOOL))callback andEnableExperimentalWorkletSupport:(BOOL)enableExperimentalWorkletSupport
+- (void)prepareWithRuntimePointer:(void *)runtimePointer
+                         callback:(void(^)(BOOL))callback
+   enableExperimentalWorkletSupport:(BOOL)enableExperimentalWorkletSupport
 {
   if (_wasPrepareCalled) {
     return;
   }
   _wasPrepareCalled = YES;
 
-  __weak EXGLContext *weakSelf = self;
+  EXGLContextSetDefaultFramebuffer(_contextId, [self defaultFramebuffer]);
+  EXGLContextPrepare(runtimePointer, _contextId, [self](){
+    [self flush];
+  });
 
-  [_runtime schedule:^{
-    EXGLContext *self = weakSelf;
-    EXJavaScriptRuntime *runtime = [self runtime];
-
-    if (!self || !runtime) {
-      BLOCK_SAFE_RUN(callback, NO);
-      return;
-    }
-
-    EXGLContextSetDefaultFramebuffer(self->_contextId, [self defaultFramebuffer]);
-    EXGLContextPrepare([runtime get], self->_contextId, [self](){
-      [self flush];
+  if (enableExperimentalWorkletSupport) {
+    dispatch_sync(dispatch_get_main_queue(), ^{
+      EXGLContextPrepareWorklet(self->_contextId);
     });
+  }
+  self.isContextReady = YES;
 
-    if (enableExperimentalWorkletSupport) {
-      dispatch_sync(dispatch_get_main_queue(), ^{
-        EXGLContextPrepareWorklet(self->_contextId);
-      });
-    }
-    self.isContextReady = YES;
+  if ([self.delegate respondsToSelector:@selector(glContextInitialized:)]) {
+    [self.delegate glContextInitialized:self];
+  }
 
-    if ([self.delegate respondsToSelector:@selector(glContextInitialized:)]) {
-      [self.delegate glContextInitialized:self];
-    }
-
-    BLOCK_SAFE_RUN(callback, YES);
-  } priority:(int)react::SchedulerPriority::ImmediatePriority];
+  BLOCK_SAFE_RUN(callback, YES);
 }
 
 - (void)flush
@@ -162,9 +149,8 @@
 
   [self runAsync:^{
     EXGLContext *self = weakSelf;
-    EXJavaScriptRuntime *runtime = [self runtime];
 
-    if (!self || !runtime) {
+    if (!self) {
       return;
     }
 
@@ -172,18 +158,14 @@
       [self.delegate glContextWillDestroy:self];
     }
 
-    EXGLContextId contextId = self->_contextId;
-
     // Flush all the stuff
-    EXGLContextFlush(contextId);
+    EXGLContextFlush(self->_contextId);
 
-    [runtime schedule:^{
-      // Destroy JS binding
-      EXGLContextDestroy(contextId);
+    // Destroy JS binding
+    EXGLContextDestroy(self->_contextId);
 
-      // Remove from dictionary of contexts
-      [[EXGLObjectManager shared] deleteContextWithId:@(contextId)];
-    } priority:(int)react::SchedulerPriority::ImmediatePriority];
+    // Remove from dictionary of contexts
+    [[EXGLObjectManager shared] deleteContextWithId:@(self->_contextId)];
   }];
 }
 
@@ -195,12 +177,22 @@
 // - `framebuffer`: WebGLFramebuffer that we will be reading from. If not specified, the default framebuffer for this context will be used.
 // - `rect`: { x, y, width, height } object used to crop the snapshot.
 // - `format`: "jpeg" or "png" - specifies what type of compression and file extension should be used.
-// - `compress`: A value in 0 - 1 range specyfing compression level. JPEG format only.
+// - `compress`: A value in 0 - 1 range specifying compression level. JPEG format only.
 - (void)takeSnapshotWithOptions:(nonnull NSDictionary *)options
                         resolve:(EXPromiseResolveBlock)resolve
                          reject:(EXPromiseRejectBlock)reject
 {
   [self flush];
+
+  // The drawable is sized with the view's scale, so the snapshot must convert pixels to points with
+  // the same value. Read it on the main thread before handing off to the GL queue.
+  __block CGFloat scale = 1;
+  id<EXGLContextDelegate> delegate = self.delegate;
+  [EXUtilities performSynchronouslyOnMainThread:^{
+    if (delegate) {
+      scale = [delegate glContextGetScale];
+    }
+  }];
 
   [self runAsync:^{
     NSDictionary *rect = options[@"rect"] ?: [self currentViewport];
@@ -260,7 +252,6 @@
                                         providerRef, NULL, true, kCGRenderingIntentDefault);
 
     // Begin image context
-    CGFloat scale = [EXUtilities screenScale];
     NSInteger widthInPoints = width / scale;
     NSInteger heightInPoints = height / scale;
     UIGraphicsBeginImageContextWithOptions(CGSizeMake(widthInPoints, heightInPoints), NO, scale);

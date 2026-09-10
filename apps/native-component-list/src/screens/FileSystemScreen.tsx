@@ -1,10 +1,19 @@
+import { Asset } from 'expo-asset';
 import Checkbox from 'expo-checkbox';
 import * as Contacts from 'expo-contacts';
-import * as DocumentPicker from 'expo-document-picker';
-import { File, Directory, Paths, FileMode } from 'expo-file-system';
-import type { FileHandle } from 'expo-file-system';
+import { File, Directory, Paths, FileMode, UploadType, DownloadTask } from 'expo-file-system';
+import type {
+  FileHandle,
+  UploadProgress,
+  DownloadProgress,
+  DownloadPauseState,
+  DownloadTaskState,
+  UploadTaskState,
+  WatchSubscription,
+  WatchEvent,
+} from 'expo-file-system';
 import * as IntentLauncher from 'expo-intent-launcher';
-import * as MediaLibrary from 'expo-media-library';
+import * as MediaLibrary from 'expo-media-library/legacy';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -12,10 +21,14 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  Image,
   TouchableOpacity,
+  useWindowDimensions,
   View,
+  DimensionValue,
 } from 'react-native';
 
+import { BodyText } from '../components/BodyText';
 import HeadingText from '../components/HeadingText';
 import ListButton from '../components/ListButton';
 import MonoText from '../components/MonoText';
@@ -28,6 +41,72 @@ FileSystemScreen.navigationOptions = {
 function truncate(str: string, maxLen = 200): string {
   if (str.length <= maxLen) return str;
   return str.substring(0, maxLen) + `... (${str.length} chars total)`;
+}
+function formatBytes(bytes: number): string {
+  if (bytes < 0) return 'unknown';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+const previewPdfFixture = `%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 47 >>
+stream
+BT /F1 24 Tf 72 720 Td (File Preview PDF) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f
+0000000009 00000 n
+0000000058 00000 n
+0000000115 00000 n
+0000000241 00000 n
+0000000338 00000 n
+trailer
+<< /Root 1 0 R /Size 6 >>
+startxref
+408
+%%EOF`;
+
+const getPreviewDirectory = () => {
+  const directory = new Directory(Paths.cache, 'file-system-preview');
+  directory.create({ intermediates: true, idempotent: true });
+  return directory;
+};
+
+async function writePreviewFixtureAsync(fileName: string, contents: string) {
+  const file = new File(getPreviewDirectory(), fileName);
+  await file.write(contents);
+  return file;
+}
+
+async function copyPreviewAssetAsync(assetModule: number, fileName: string) {
+  const asset = Asset.fromModule(assetModule);
+  await asset.downloadAsync();
+
+  if (!asset.localUri) {
+    throw new Error('Unable to resolve local asset URI.');
+  }
+
+  const source = new File(asset.localUri);
+  const destination = new File(getPreviewDirectory(), fileName);
+  await source.copy(destination, { overwrite: true });
+  return destination;
 }
 
 export default function FileSystemScreen() {
@@ -54,8 +133,14 @@ export default function FileSystemScreen() {
 
         <FileSourcesSection setCurrentFile={setCurrentFile} />
         <FileInfoSection withCurrentFile={withCurrentFile} />
+        <FilePreviewSection
+          currentFile={currentFile}
+          setCurrentFile={setCurrentFile}
+          withCurrentFile={withCurrentFile}
+        />
         <ReadWriteSection withCurrentFile={withCurrentFile} />
         <FileHandleSection currentFile={currentFile} />
+        <FileWatcherSection currentFile={currentFile} />
         <CopyMoveSection
           withCurrentFile={withCurrentFile}
           safDirectory={safDirectory}
@@ -70,6 +155,10 @@ export default function FileSystemScreen() {
           <AndroidIntentsSection currentFile={currentFile} withCurrentFile={withCurrentFile} />
         )}
         <FileLifecycleSection setCurrentFile={setCurrentFile} withCurrentFile={withCurrentFile} />
+        <FilePickerSection setCurrentFile={setCurrentFile} />
+        <DownloadSection />
+        <UploadSection currentFile={currentFile} />
+        <DownloadTaskSection />
       </View>
     </ScrollView>
   );
@@ -85,10 +174,10 @@ function FileSourcesSection({ setCurrentFile }: { setCurrentFile: (f: File) => v
 
       <ListButton
         title="Create local file"
-        onPress={() => {
+        onPress={async () => {
           const file = new File(Paths.cache, 'test_sandbox', 'test.txt');
           file.create({ intermediates: true, overwrite: true });
-          file.write('Hello from FileSystem sandbox! Timestamp: ' + Date.now());
+          await file.write('Hello from FileSystem sandbox! Timestamp: ' + Date.now());
           setCurrentFile(file);
           Alert.alert('Created', file.uri);
         }}
@@ -104,27 +193,10 @@ function FileSourcesSection({ setCurrentFile }: { setCurrentFile: (f: File) => v
       <ListButton
         title="File.pickFileAsync"
         onPress={async () => {
-          const result = await File.pickFileAsync();
+          const result = (await File.pickFileAsync({ multipleFiles: false })).result;
           const file = Array.isArray(result) ? result[0] : result;
           setCurrentFile(file as File);
           Alert.alert('Picked SAF file', file.uri);
-        }}
-      />
-      <ListButton
-        title="Pick via DocumentPicker"
-        onPress={async () => {
-          try {
-            const result = await DocumentPicker.getDocumentAsync({
-              copyToCacheDirectory: false,
-            });
-            if (!result.canceled && result.assets?.length > 0) {
-              const file = new File(result.assets[0].uri);
-              setCurrentFile(file);
-              Alert.alert('DocumentPicker file', file.uri);
-            }
-          } catch (e: any) {
-            Alert.alert('Error', e.message);
-          }
         }}
       />
       <ListButton
@@ -220,7 +292,8 @@ function FileInfoSection({ withCurrentFile }: { withCurrentFile: WithCurrentFile
           exists: file.exists,
           size: file.size,
           type: file.type,
-          md5: file.md5,
+          md5: await file.digest('MD5'),
+          sha256: await file.digest('SHA-256'),
           modificationTime: file.modificationTime,
           creationTime: file.creationTime,
         }))}
@@ -234,9 +307,87 @@ function FileInfoSection({ withCurrentFile }: { withCurrentFile: WithCurrentFile
           }))}
         />
       )}
+      <SimpleActionDemo title="Show info()" action={withCurrentFile(async (file) => file.info())} />
+    </>
+  );
+}
+
+// ===== Section: File Preview =====
+
+function FilePreviewSection({
+  currentFile,
+  setCurrentFile,
+  withCurrentFile,
+}: {
+  currentFile: File | null;
+  setCurrentFile: (f: File) => void;
+  withCurrentFile: WithCurrentFile;
+}) {
+  async function createFixture(title: string, prepareFileAsync: () => Promise<File>) {
+    try {
+      const file = await prepareFileAsync();
+      setCurrentFile(file);
+      Alert.alert(title, file.uri);
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    }
+  }
+
+  return (
+    <>
+      <HeadingText>File Preview</HeadingText>
+      <Text style={styles.note}>Open local files with the platform file preview flow</Text>
+
+      <ListButton
+        title="Create PDF fixture"
+        onPress={() =>
+          createFixture('PDF fixture', () =>
+            writePreviewFixtureAsync('file-preview-test.pdf', previewPdfFixture)
+          )
+        }
+      />
+      <ListButton
+        title="Create image fixture"
+        onPress={() =>
+          createFixture('Image fixture', () =>
+            copyPreviewAssetAsync(
+              require('../../assets/images/large-example.jpg'),
+              'file-preview-test.jpg'
+            )
+          )
+        }
+      />
+      <ListButton
+        title="Create text fixture"
+        onPress={() =>
+          createFixture('Text fixture', () =>
+            writePreviewFixtureAsync(
+              'file-preview-test.txt',
+              'File Preview text fixture.\n\nThis file was generated locally in the Expo test app.'
+            )
+          )
+        }
+      />
       <SimpleActionDemo
-        title="Show info({ md5: true })"
-        action={withCurrentFile(async (file) => file.info({ md5: true }))}
+        title="canPreview()"
+        action={withCurrentFile(async (file) => ({
+          uri: file.uri,
+          type: file.type,
+          canPreview: await file.canPreview(),
+        }))}
+      />
+      <ListButton
+        title="preview()"
+        disabled={!currentFile}
+        onPress={async () => {
+          try {
+            await currentFile!.preview({
+              title: currentFile!.name,
+            });
+          } catch (e: any) {
+            Alert.alert('Error', e.message);
+          }
+        }}
       />
     </>
   );
@@ -272,7 +423,7 @@ function ReadWriteSection({ withCurrentFile }: { withCurrentFile: WithCurrentFil
       <SimpleActionDemo
         title="write() text"
         action={withCurrentFile(async (file) => {
-          file.write('Written at ' + new Date().toISOString());
+          await file.write('Written at ' + new Date().toISOString());
           return 'OK - size is now: ' + file.size;
         })}
       />
@@ -280,7 +431,7 @@ function ReadWriteSection({ withCurrentFile }: { withCurrentFile: WithCurrentFil
         title="write() base64"
         action={withCurrentFile(async (file) => {
           // Base64 of "Hello Base64!"
-          file.write('SGVsbG8gQmFzZTY0IQ==', { encoding: 'base64' });
+          await file.write('SGVsbG8gQmFzZTY0IQ==', { encoding: 'base64' });
           return 'OK - text() = ' + truncate(await file.text());
         })}
       />
@@ -288,7 +439,7 @@ function ReadWriteSection({ withCurrentFile }: { withCurrentFile: WithCurrentFil
         title="write() Uint8Array"
         action={withCurrentFile(async (file) => {
           const bytes = new Uint8Array([72, 101, 108, 108, 111]); // "Hello"
-          file.write(bytes);
+          await file.write(bytes);
           return 'OK - text() = ' + file.textSync();
         })}
       />
@@ -368,9 +519,9 @@ function FileHandleSection({ currentFile }: { currentFile: File | null }) {
       <ListButton
         title="Read 10 bytes"
         disabled={!handleRef.current}
-        onPress={() => {
+        onPress={async () => {
           try {
-            const bytes = handleRef.current!.readBytes(10);
+            const bytes = await handleRef.current!.readBytes(10);
             setHandleInfo(`offset=${handleRef.current!.offset}, size=${handleRef.current!.size}`);
             appendLog(`Read ${bytes.length}B: [${Array.from(bytes).join(', ')}]`);
           } catch (e: any) {
@@ -381,9 +532,9 @@ function FileHandleSection({ currentFile }: { currentFile: File | null }) {
       <ListButton
         title="Write 'TEST' bytes"
         disabled={!handleRef.current}
-        onPress={() => {
+        onPress={async () => {
           try {
-            handleRef.current!.writeBytes(new Uint8Array([84, 69, 83, 84]));
+            await handleRef.current!.writeBytes(new Uint8Array([84, 69, 83, 84]));
             setHandleInfo(`offset=${handleRef.current!.offset}, size=${handleRef.current!.size}`);
             appendLog('Wrote 4 bytes (TEST)');
           } catch (e: any) {
@@ -437,6 +588,113 @@ function FileHandleSection({ currentFile }: { currentFile: File | null }) {
   );
 }
 
+function FileWatcherSection({ currentFile }: { currentFile: File | null }) {
+  const subscriptionRef = useRef<WatchSubscription | null>(null);
+  const [watchTarget, setWatchTarget] = useState<string | null>(null);
+  const [watchLog, setWatchLog] = useState<string[]>([]);
+
+  useEffect(() => {
+    return () => {
+      subscriptionRef.current?.remove();
+      subscriptionRef.current = null;
+    };
+  }, []);
+
+  function appendLog(line: string) {
+    const timestamp = new Date().toLocaleTimeString();
+    setWatchLog((prev) => [`[${timestamp}] ${line}`, ...prev].slice(0, 50));
+  }
+
+  function stopWatching() {
+    if (subscriptionRef.current) {
+      subscriptionRef.current.remove();
+      subscriptionRef.current = null;
+      appendLog('Stopped watching');
+      setWatchTarget(null);
+    }
+  }
+
+  function watchFile(file: File) {
+    stopWatching();
+    try {
+      const subscription = file.watch((event: WatchEvent<File>) => {
+        appendLog(`${event.type.toUpperCase()}: ${event.target.name}`);
+      });
+      subscriptionRef.current = subscription;
+      setWatchTarget(`File: ${file.name}`);
+      appendLog(`Started watching file: ${file.name}`);
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    }
+  }
+
+  function watchDirectory(dir: Directory) {
+    stopWatching();
+    try {
+      const subscription = dir.watch((event: WatchEvent<File | Directory>) => {
+        const targetType = event.target instanceof Directory ? 'dir' : 'file';
+        appendLog(`${event.type.toUpperCase()} (${targetType}): ${event.target.name}`);
+      });
+      subscriptionRef.current = subscription;
+      setWatchTarget(`Directory: ${dir.name}`);
+      appendLog(`Started watching directory: ${dir.name}`);
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    }
+  }
+
+  return (
+    <>
+      <HeadingText>File System Watcher</HeadingText>
+      <Text style={styles.note}>Watch files or directories for changes</Text>
+
+      <ListButton
+        title="Watch current file"
+        disabled={!currentFile}
+        onPress={() => watchFile(currentFile!)}
+      />
+      <ListButton
+        title="Watch cache directory"
+        onPress={() => {
+          const cacheDir = new Directory(Paths.cache, 'test_sandbox');
+          cacheDir.create({ intermediates: true, idempotent: true });
+          watchDirectory(cacheDir);
+        }}
+      />
+      <ListButton title="Watch document directory" onPress={() => watchDirectory(Paths.document)} />
+      <ListButton
+        title="Stop watching"
+        disabled={!subscriptionRef.current}
+        onPress={stopWatching}
+      />
+
+      {watchTarget && (
+        <View style={styles.watchStatusBar}>
+          <Text style={styles.watchStatusText}>Watching: {watchTarget}</Text>
+        </View>
+      )}
+
+      {watchLog.length > 0 && (
+        <>
+          <View style={styles.watchLogHeader}>
+            <Text style={styles.watchLogTitle}>Event Log</Text>
+            <TouchableOpacity onPress={() => setWatchLog([])}>
+              <Text style={styles.clearLogButton}>Clear</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.watchLogContainer} nestedScrollEnabled>
+            {watchLog.map((line, index) => (
+              <Text key={index} style={styles.watchLogLine}>
+                {line}
+              </Text>
+            ))}
+          </ScrollView>
+        </>
+      )}
+    </>
+  );
+}
+
 // ===== Section: Copy & Move =====
 
 function CopyMoveSection({
@@ -455,14 +713,14 @@ function CopyMoveSection({
       <HeadingText>Copy & Move</HeadingText>
       <View style={styles.optionRow}>
         <Checkbox value={overwrite} onValueChange={setOverwrite} style={styles.checkbox} />
-        <Text style={styles.optionLabel}>overwrite</Text>
+        <BodyText style={styles.optionLabel}>overwrite</BodyText>
       </View>
       <SimpleActionDemo
         title="Copy to cache dir (file://)"
         action={withCurrentFile(async (file) => {
           const dest = new Directory(Paths.cache, 'test_sandbox_copy');
           dest.create({ intermediates: true, idempotent: true });
-          file.copy(dest, { overwrite });
+          await file.copy(dest, { overwrite });
           return dest.list().map((f) => f.name);
         })}
       />
@@ -471,7 +729,7 @@ function CopyMoveSection({
         action={withCurrentFile(async (file) => {
           const dest = new Directory(Paths.document, 'test_sandbox_copy');
           dest.create({ intermediates: true, idempotent: true });
-          file.copy(dest, { overwrite });
+          await file.copy(dest, { overwrite });
           return { destUri: dest.uri, files: dest.list().map((f) => f.name) };
         })}
       />
@@ -492,7 +750,7 @@ function CopyMoveSection({
         <SimpleActionDemo
           title="Copy to destination directory"
           action={withCurrentFile(async (file) => {
-            file.copy(safDirectory, { overwrite });
+            await file.copy(safDirectory, { overwrite });
             return safDirectory.list().map((f) => f.name);
           })}
         />
@@ -504,7 +762,7 @@ function CopyMoveSection({
           const dest = new Directory(Paths.cache, 'test_sandbox_moved');
           dest.create({ intermediates: true, idempotent: true });
           const oldUri = file.uri;
-          file.move(dest, { overwrite });
+          await file.move(dest, { overwrite });
           return { oldUri, newUri: file.uri };
         })}
       />
@@ -573,7 +831,7 @@ function DirectoryOperationsSection({
             title="Create file 'test_created.txt' in picked dir"
             action={async () => {
               const file = safDirectory.createFile('test_created.txt', 'text/plain');
-              file.write('Created at ' + new Date().toISOString());
+              await file.write('Created at ' + new Date().toISOString());
               setCurrentFile(file);
               return { uri: file.uri, name: file.name };
             }}
@@ -674,7 +932,7 @@ function FileLifecycleSection({
           const name = `test_${Date.now()}.txt`;
           const file = new File(Paths.cache, 'test_sandbox', name);
           file.create({ intermediates: true });
-          file.write('Created for lifecycle test');
+          await file.write('Created for lifecycle test');
           setCurrentFile(file);
           return { uri: file.uri, exists: file.exists, size: file.size };
         }}
@@ -697,7 +955,489 @@ function FileLifecycleSection({
   );
 }
 
-// ===== Styles =====
+function FilePickerSection({ setCurrentFile }: { setCurrentFile: (f: File) => void }) {
+  const { width } = useWindowDimensions();
+  const [multiple, setMultiple] = useState(false);
+  const [pdfMime, setPdfMime] = useState(false);
+  const [allMime, setAllMime] = useState(true);
+  const [imageMime, setPngMime] = useState(false);
+  const [pickerResult, setPickerResult] = useState<File | File[] | null>(null);
+  const mimeTypes = (): string[] => {
+    const mimeTypesArr: string[] = [];
+    if (pdfMime) mimeTypesArr.push('application/pdf');
+    if (allMime) mimeTypesArr.push('*/*');
+    if (imageMime) mimeTypesArr.push('image/*');
+    return mimeTypesArr;
+  };
+
+  const openPicker = async () => {
+    try {
+      const multipleFiles = multiple;
+      const { result, canceled } = multiple
+        ? await File.pickFileAsync({
+            multipleFiles: true,
+            mimeTypes: mimeTypes(),
+          })
+        : await File.pickFileAsync({ multipleFiles: false, mimeTypes: mimeTypes() });
+      if (!canceled) {
+        if (!multipleFiles) {
+          setCurrentFile(result as File);
+        }
+        setPickerResult(result as File | File[]);
+      } else {
+        setTimeout(() => {
+          if (Platform.OS === 'web') {
+            alert('canceled');
+          } else {
+            Alert.alert('canceled');
+          }
+        }, 100);
+      }
+    } catch (err) {
+      console.error('Error picking file:', err);
+      setTimeout(() => {
+        Alert.alert('error', `Error picking file: ${err}`);
+      }, 150);
+    }
+  };
+  return (
+    <>
+      <HeadingText>File Picker</HeadingText>
+      <View style={styles.optionRow}>
+        <Checkbox value={multiple} onValueChange={setMultiple} style={styles.checkbox} />
+        <BodyText style={styles.optionLabel}>multiple files</BodyText>
+      </View>
+      <BodyText>Mime types</BodyText>
+      <View style={styles.optionRow}>
+        <Checkbox value={imageMime} onValueChange={setPngMime} style={styles.checkbox} />
+        <BodyText style={styles.optionLabel}>images</BodyText>
+      </View>
+      <View style={styles.optionRow}>
+        <Checkbox value={pdfMime} onValueChange={setPdfMime} style={styles.checkbox} />
+        <BodyText style={styles.optionLabel}>pdf files</BodyText>
+      </View>
+      <View style={styles.optionRow}>
+        <Checkbox value={allMime} onValueChange={setAllMime} style={styles.checkbox} />
+        <BodyText style={styles.optionLabel}>all files</BodyText>
+      </View>
+      <BodyText> Selected mime types: {JSON.stringify(mimeTypes())}</BodyText>
+      <SimpleActionDemo
+        title={multiple ? 'Pick multiple files' : 'Pick a single file'}
+        action={async () => {
+          await openPicker();
+        }}
+      />
+      <View
+        style={{
+          padding: 20,
+          maxWidth: width - 40,
+          width: '100%',
+          justifyContent: 'flex-start',
+        }}>
+        {Array.of(pickerResult)
+          .flat()
+          .map((file, index) => {
+            if (!file) return null;
+
+            return (
+              <View
+                key={`${index}-${file?.contentUri}`}
+                style={{ marginBottom: 20, width: '100%', flex: 1 }}>
+                {file?.name!.match(/\.(png|jpg)$/gi) ? (
+                  <Image
+                    source={{ uri: file.uri }}
+                    resizeMode="cover"
+                    style={{ width: 100, height: 100 }}
+                  />
+                ) : null}
+                <BodyText numberOfLines={1} ellipsizeMode="middle">
+                  {file?.name} ({file?.size! / 1000} KB)
+                </BodyText>
+                <BodyText numberOfLines={1} ellipsizeMode="middle">
+                  URI: {file?.uri}
+                </BodyText>
+                <BodyText numberOfLines={1} ellipsizeMode="middle">
+                  Mime type: {file?.type}
+                </BodyText>
+                <BodyText>Last modified: {file?.lastModified}</BodyText>
+              </View>
+            );
+          })}
+      </View>
+    </>
+  );
+}
+
+// ===== Section: Download Progress =====
+
+function DownloadSection() {
+  const [status, setStatus] = useState<'idle' | 'downloading' | 'done' | 'cancelled' | 'error'>(
+    'idle'
+  );
+  const [progress, setProgress] = useState<DownloadProgress | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [resultUri, setResultUri] = useState<string | null>(null);
+  const controllerRef = useRef<AbortController | null>(null);
+
+  const startDownload = async () => {
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    setStatus('downloading');
+    setProgress(null);
+    setError(null);
+    setResultUri(null);
+
+    const dest = new File(Paths.cache, 'large-download-test.bin');
+    if (dest.exists) {
+      dest.delete();
+    }
+
+    try {
+      const file = await File.downloadFileAsync('https://proof.ovh.net/files/100Mb.dat', dest, {
+        idempotent: true,
+        signal: controller.signal,
+        onProgress: (data: DownloadProgress) => {
+          setProgress({ ...data });
+        },
+      });
+      setResultUri(file.uri);
+      setStatus('done');
+    } catch (e: any) {
+      if (e.name === 'AbortError') {
+        setStatus('cancelled');
+      } else {
+        setError(e.message ?? String(e));
+        setStatus('error');
+      }
+    } finally {
+      controllerRef.current = null;
+    }
+  };
+
+  const abort = () => {
+    controllerRef.current?.abort();
+  };
+
+  const cleanup = () => {
+    const dest = new File(Paths.cache, 'large-download-test.bin');
+    if (dest.exists) {
+      dest.delete();
+    }
+    setStatus('idle');
+    setProgress(null);
+    setError(null);
+    setResultUri(null);
+  };
+
+  const pct =
+    progress && progress.totalBytes > 0
+      ? ((progress.bytesWritten / progress.totalBytes) * 100).toFixed(1)
+      : null;
+
+  return (
+    <>
+      <HeadingText>Large File Download (100 MB)</HeadingText>
+
+      {status === 'idle' && <ListButton title="Start download" onPress={startDownload} />}
+
+      {status === 'downloading' && (
+        <>
+          <View style={styles.progressContainer}>
+            <View style={styles.progressBarBg}>
+              <View
+                style={[
+                  styles.progressBarFg,
+                  { width: (pct ? `${pct}%` : '0%') as DimensionValue },
+                ]}
+              />
+            </View>
+            <MonoText>
+              {progress
+                ? `${formatBytes(progress.bytesWritten)} / ${formatBytes(progress.totalBytes)}${pct ? ` (${pct}%)` : ''}`
+                : 'Starting...'}
+            </MonoText>
+          </View>
+          <ListButton title="Abort download" onPress={abort} />
+        </>
+      )}
+
+      {status === 'done' && (
+        <>
+          <Text style={styles.successText}>Download complete</Text>
+          <MonoText>{resultUri}</MonoText>
+          <ListButton title="Clean up & reset" onPress={cleanup} />
+        </>
+      )}
+
+      {status === 'cancelled' && (
+        <>
+          <Text style={styles.cancelledText}>Download cancelled</Text>
+          <ListButton title="Clean up & reset" onPress={cleanup} />
+        </>
+      )}
+
+      {status === 'error' && (
+        <>
+          <Text style={styles.errorText}>Error: {error}</Text>
+          <ListButton title="Clean up & reset" onPress={cleanup} />
+        </>
+      )}
+    </>
+  );
+}
+
+function UploadSection({ currentFile }: { currentFile: File | null }) {
+  const [progress, setProgress] = useState<string>('');
+  const [result, setResult] = useState<string>('');
+  const [uploading, setUploading] = useState(false);
+  const [taskState, setTaskState] = useState<UploadTaskState | null>(null);
+  const taskRef = useRef<ReturnType<File['createUploadTask']> | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const handleUpload = async (uploadType: UploadType) => {
+    if (!currentFile) {
+      Alert.alert('Error', 'No file selected');
+      return;
+    }
+    setUploading(true);
+    setProgress('Starting...');
+    setResult('');
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    try {
+      const task = currentFile.createUploadTask('https://httpbin.org/post', {
+        uploadType,
+        fieldName: 'file',
+        mimeType: currentFile.type || 'application/octet-stream',
+        parameters: { description: 'test upload' },
+        onProgress: ({ bytesSent, totalBytes }: UploadProgress) => {
+          setProgress(`${bytesSent} / ${totalBytes} bytes`);
+        },
+        signal: abortController.signal,
+      });
+      taskRef.current = task;
+      setTaskState(task.state);
+      const uploadResult = await task.uploadAsync();
+      setTaskState(task.state);
+      setResult(
+        JSON.stringify(
+          { status: uploadResult.status, body: truncate(uploadResult.body, 300) },
+          null,
+          2
+        )
+      );
+    } catch (e: any) {
+      console.log(e);
+      setTaskState(taskRef.current?.state ?? null);
+      setResult(`Error: ${e.message}`);
+      setProgress('Errored');
+    } finally {
+      setUploading(false);
+      taskRef.current = null;
+      abortControllerRef.current = null;
+    }
+  };
+
+  return (
+    <>
+      <HeadingText>Upload Task</HeadingText>
+      <ListButton
+        title="Upload binary"
+        disabled={!currentFile || uploading}
+        onPress={() => handleUpload(UploadType.BINARY_CONTENT)}
+      />
+      <ListButton
+        title="Upload multipart"
+        disabled={!currentFile || uploading}
+        onPress={() => handleUpload(UploadType.MULTIPART)}
+      />
+      <ListButton
+        title="Cancel upload (task.cancel)"
+        disabled={!uploading}
+        onPress={() => taskRef.current?.cancel()}
+      />
+      <ListButton
+        title="Cancel upload (AbortSignal)"
+        disabled={!uploading}
+        onPress={() => abortControllerRef.current?.abort()}
+      />
+      {taskState ? <MonoText>State: {taskState}</MonoText> : null}
+      {progress ? <MonoText>Progress: {progress}</MonoText> : null}
+      {result ? <MonoText>{result}</MonoText> : null}
+    </>
+  );
+}
+
+function DownloadTaskSection() {
+  const [progress, setProgress] = useState<string>('');
+  const [status, setStatus] = useState<'idle' | 'downloading' | 'paused' | 'completed'>('idle');
+  const [resultInfo, setResultInfo] = useState<string>('');
+  const [savedState, setSavedState] = useState<DownloadPauseState | null>(null);
+  const [taskState, setTaskState] = useState<DownloadTaskState | null>(null);
+  const taskRef = useRef<ReturnType<typeof File.createDownloadTask> | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const onProgress = ({ bytesWritten, totalBytes }: DownloadProgress) => {
+    const pct = totalBytes > 0 ? Math.round((bytesWritten / totalBytes) * 100) : '?';
+    setProgress(`${bytesWritten} / ${totalBytes} bytes (${pct}%)`);
+  };
+
+  const handleStart = async () => {
+    setStatus('downloading');
+    setProgress('Starting...');
+    setResultInfo('');
+    setSavedState(null);
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    const dest = new File(Paths.cache, 'test_sandbox', 'download_task_test.bin');
+    const task = File.createDownloadTask('https://proof.ovh.net/files/100Mb.dat', dest, {
+      onProgress,
+      signal: abortController.signal,
+    });
+    taskRef.current = task;
+    setTaskState(task.state);
+    try {
+      const file = await task.downloadAsync();
+      setTaskState(task.state);
+      if (file) {
+        setStatus('completed');
+        setResultInfo(`Done: ${file.uri}\nSize: ${file.size} bytes`);
+      } else {
+        // Paused — downloadAsync resolved with null
+        setStatus('paused');
+        try {
+          const state = task.savable();
+          setSavedState(state);
+          setResultInfo(`Paused. Resume data: ${state.resumeData ?? 'none'}`);
+        } catch {
+          setResultInfo('Paused (no savable state yet)');
+        }
+      }
+    } catch (e: any) {
+      console.log(e);
+      setTaskState(task.state);
+      setStatus('idle');
+      setProgress('Errored');
+      setResultInfo(`Error: ${e.message}`);
+    }
+  };
+
+  const handlePause = () => {
+    try {
+      taskRef.current?.pause();
+      // downloadAsync() will resolve with null, which is handled in handleStart
+    } catch (e: any) {
+      console.log(e);
+      setResultInfo(`Pause error: ${e.message}`);
+    }
+  };
+
+  const handleResume = async () => {
+    setStatus('downloading');
+    setTaskState(taskRef.current?.state ?? null);
+    try {
+      const file = await taskRef.current?.resumeAsync();
+      setTaskState(taskRef.current?.state ?? null);
+      if (file) {
+        setStatus('completed');
+        setSavedState(null);
+        setResultInfo(`Done: ${file.uri}\nSize: ${file.size} bytes`);
+      } else {
+        setStatus('paused');
+        try {
+          const state = taskRef.current!.savable();
+          setSavedState(state);
+        } catch {
+          /* not in paused state yet */
+        }
+        setResultInfo('Paused again');
+      }
+    } catch (e: any) {
+      console.log(e);
+      setStatus('idle');
+      setResultInfo(`Resume error: ${e.message}`);
+    }
+  };
+
+  const handleRestoreFromSaved = async () => {
+    if (!savedState) {
+      return;
+    }
+    setStatus('downloading');
+    setProgress('Resuming from saved state...');
+    setResultInfo('');
+    abortControllerRef.current = new AbortController();
+    const task = DownloadTask.fromSavable(savedState, {
+      onProgress,
+      signal: abortControllerRef.current.signal,
+    });
+    taskRef.current = task;
+    setTaskState(task.state);
+    try {
+      const file = await task.resumeAsync();
+      setTaskState(task.state);
+      if (file) {
+        setStatus('completed');
+        setSavedState(null);
+        setResultInfo(`Done (from savable): ${file.uri}\nSize: ${file.size} bytes`);
+      } else {
+        setStatus('paused');
+        setResultInfo('Paused again');
+      }
+    } catch (e: any) {
+      console.log(e);
+      setStatus('idle');
+      setResultInfo(`Resume from saved error: ${e.message}`);
+    }
+  };
+
+  const handleCancel = () => {
+    taskRef.current?.cancel();
+    taskRef.current = null;
+    abortControllerRef.current = null;
+    setStatus('idle');
+    setProgress('');
+    setSavedState(null);
+    setResultInfo('Cancelled');
+  };
+
+  const handleAbort = () => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+  };
+
+  return (
+    <>
+      <HeadingText>Download Task</HeadingText>
+      <ListButton
+        title="Start download"
+        disabled={status === 'downloading'}
+        onPress={handleStart}
+      />
+      <ListButton title="Pause" disabled={status !== 'downloading'} onPress={handlePause} />
+      <ListButton title="Resume" disabled={status !== 'paused'} onPress={handleResume} />
+      <ListButton
+        title="Resume from savable"
+        disabled={!savedState}
+        onPress={handleRestoreFromSaved}
+      />
+      <ListButton
+        title="Cancel"
+        disabled={status === 'idle' || status === 'completed'}
+        onPress={handleCancel}
+      />
+      <ListButton
+        title="Abort (AbortSignal)"
+        disabled={status !== 'downloading'}
+        onPress={handleAbort}
+      />
+      {taskState ? <MonoText>State: {taskState}</MonoText> : null}
+      {progress ? <MonoText>Progress: {progress}</MonoText> : null}
+      {resultInfo ? <MonoText>{resultInfo}</MonoText> : null}
+      {savedState ? <MonoText>Saved state: {JSON.stringify(savedState, null, 2)}</MonoText> : null}
+    </>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -750,5 +1490,82 @@ const styles = StyleSheet.create({
   },
   enumButtonTextActive: {
     color: '#fff',
+  },
+  progressContainer: {
+    marginVertical: 8,
+  },
+  progressBarBg: {
+    height: 20,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressBarFg: {
+    height: '100%',
+    backgroundColor: '#4caf50',
+  },
+  progressText: {
+    marginTop: 4,
+    fontSize: 13,
+    color: '#555',
+  },
+  successText: {
+    color: '#2e7d32',
+    fontWeight: 'bold',
+    marginVertical: 4,
+  },
+  cancelledText: {
+    color: '#f57c00',
+    fontWeight: 'bold',
+    marginVertical: 4,
+  },
+  errorText: {
+    color: '#c62828',
+    marginVertical: 4,
+  },
+  uriText: {
+    fontSize: 11,
+    color: '#888',
+    marginBottom: 4,
+  },
+  watchStatusBar: {
+    backgroundColor: '#e8f5e9',
+    padding: 8,
+    borderRadius: 4,
+    marginTop: 8,
+  },
+  watchStatusText: {
+    fontSize: 12,
+    color: '#2e7d32',
+    fontWeight: '500',
+  },
+  watchLogHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+  watchLogTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+  },
+  clearLogButton: {
+    fontSize: 12,
+    color: '#4630eb',
+  },
+  watchLogContainer: {
+    maxHeight: 150,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 4,
+    padding: 8,
+    marginTop: 4,
+  },
+  watchLogLine: {
+    fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: '#333',
+    paddingVertical: 2,
   },
 });

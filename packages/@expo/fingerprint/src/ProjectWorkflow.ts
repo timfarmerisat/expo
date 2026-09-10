@@ -1,13 +1,14 @@
 import spawnAsync from '@expo/spawn-async';
 import fs from 'fs/promises';
 import { glob } from 'glob';
-import createIgnore, { Ignore as SingleFileIgnore } from 'ignore';
-import { type Minimatch } from 'minimatch';
+import type { Ignore as SingleFileIgnore } from 'ignore';
+import createIgnore from 'ignore';
+import type { Minimatch } from 'minimatch';
 import path from 'path';
 
 import { resolveExpoConfigPluginsPackagePath } from './ExpoResolver';
-import { type Platform, type ProjectWorkflow } from './Fingerprint.types';
-import { isIgnoredPathWithMatchObjects, pathExistsAsync } from './utils/Path';
+import type { Platform, ProjectWorkflow } from './Fingerprint.types';
+import { isIgnoredPathWithMatchObjects, pathExistsAsync, toPosixPath } from './utils/Path';
 
 /**
  * Replicated project workflow detection logic from expo-updates:
@@ -42,7 +43,7 @@ export async function resolveProjectWorkflowAsync(
   const vcsClient = await getVCSClientAsync(projectRoot);
   const vcsRoot = path.normalize(await vcsClient.getRootPathAsync());
   for (const marker of platformWorkflowMarkers) {
-    const relativeMarker = path.relative(vcsRoot, marker);
+    const relativeMarker = toPosixPath(path.relative(vcsRoot, marker));
     if (
       (await pathExistsAsync(marker)) &&
       !isIgnoredPathWithMatchObjects(relativeMarker, fingerprintIgnorePaths) &&
@@ -73,16 +74,20 @@ interface VCSClient {
 }
 
 async function getVCSClientAsync(projectRoot: string): Promise<VCSClient> {
-  if (await isGitInstalledAndConfiguredAsync()) {
-    return new GitClient();
+  if (await isGitInstalledAndConfiguredAsync(projectRoot)) {
+    return new GitClient(projectRoot);
   } else {
     return new NoVCSClient(projectRoot);
   }
 }
 
 class GitClient implements VCSClient {
+  constructor(private readonly projectRoot: string) {}
+
   public async getRootPathAsync(): Promise<string> {
-    return (await spawnAsync('git', ['rev-parse', '--show-toplevel'])).stdout.trim();
+    return (
+      await spawnAsync('git', ['rev-parse', '--show-toplevel'], { cwd: this.projectRoot })
+    ).stdout.trim();
   }
 
   async isFileIgnoredAsync(filePath: string): Promise<boolean> {
@@ -111,7 +116,7 @@ class NoVCSClient implements VCSClient {
   }
 }
 
-async function isGitInstalledAndConfiguredAsync(): Promise<boolean> {
+async function isGitInstalledAndConfiguredAsync(projectRoot: string): Promise<boolean> {
   try {
     await spawnAsync('git', ['--help']);
   } catch (error: any) {
@@ -122,7 +127,7 @@ async function isGitInstalledAndConfiguredAsync(): Promise<boolean> {
   }
 
   try {
-    await spawnAsync('git', ['rev-parse', '--show-toplevel']);
+    await spawnAsync('git', ['rev-parse', '--show-toplevel'], { cwd: projectRoot });
   } catch {
     return false;
   }

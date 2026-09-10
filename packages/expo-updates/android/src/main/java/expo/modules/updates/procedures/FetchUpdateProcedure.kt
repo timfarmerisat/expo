@@ -3,7 +3,6 @@ package expo.modules.updates.procedures
 import android.content.Context
 import expo.modules.updates.IUpdatesController
 import expo.modules.updates.UpdatesConfiguration
-import expo.modules.updates.db.DatabaseHolder
 import expo.modules.updates.db.UpdatesDatabase
 import expo.modules.updates.db.entity.UpdateEntity
 import expo.modules.updates.loader.FileDownloader
@@ -14,17 +13,19 @@ import expo.modules.updates.logging.UpdatesLogger
 import expo.modules.updates.selectionpolicy.SelectionPolicy
 import expo.modules.updates.statemachine.UpdatesStateEvent
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import java.io.File
 
 class FetchUpdateProcedure(
   private val context: Context,
   private val updatesConfiguration: UpdatesConfiguration,
   private val logger: UpdatesLogger,
-  private val databaseHolder: DatabaseHolder,
+  private val database: UpdatesDatabase,
   private val updatesDirectory: File,
   private val fileDownloader: FileDownloader,
   private val selectionPolicy: SelectionPolicy,
   private val launchedUpdate: UpdateEntity?,
+  private val scope: CoroutineScope,
   private val callback: (IUpdatesController.FetchUpdateResult) -> Unit
 ) : StateMachineProcedure() {
   override val loggerTimerLabel = "timer-fetch-update"
@@ -32,10 +33,11 @@ class FetchUpdateProcedure(
   override suspend fun run(procedureContext: ProcedureContext) {
     procedureContext.processStateEvent(UpdatesStateEvent.Download())
 
-    val database = databaseHolder.database
     try {
       val loaderResult = startRemoteLoader(database, procedureContext)
       processSuccessLoaderResult(loaderResult, procedureContext)
+    } catch (e: CancellationException) {
+      throw e
     } catch (e: Exception) {
       logger.error("Failed to download new update", e)
       procedureContext.processStateEvent(
@@ -55,7 +57,8 @@ class FetchUpdateProcedure(
       database,
       fileDownloader,
       updatesDirectory,
-      launchedUpdate
+      launchedUpdate,
+      scope
     )
 
     remoteLoader.assetLoadProgressBlock = { progress ->
@@ -98,7 +101,7 @@ class FetchUpdateProcedure(
       context,
       updatesConfiguration,
       logger,
-      databaseHolder.database,
+      database,
       selectionPolicy,
       updatesDirectory,
       launchedUpdate,
@@ -111,7 +114,7 @@ class FetchUpdateProcedure(
       callback(IUpdatesController.FetchUpdateResult.RollBackToEmbedded())
     } else {
       if (availableUpdate == null) {
-        procedureContext.processStateEvent(UpdatesStateEvent.DownloadComplete())
+        procedureContext.processStateEvent(UpdatesStateEvent.DownloadCompleteUnavailable())
         callback(IUpdatesController.FetchUpdateResult.Failure())
       } else {
         procedureContext.processStateEvent(UpdatesStateEvent.DownloadCompleteWithUpdate(availableUpdate.manifest))

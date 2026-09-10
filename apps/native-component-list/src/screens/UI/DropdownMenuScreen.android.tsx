@@ -1,17 +1,22 @@
 import {
   Button,
+  Checkbox,
+  Column,
   DropdownMenu,
-  Divider,
+  HorizontalDivider,
   DropdownMenuItem,
   Host,
   Icon,
+  RNHostView,
   Row,
   Switch,
   Text as ComposeText,
+  FilledTonalButton,
+  OutlinedButton,
 } from '@expo/ui/jetpack-compose';
-import { background } from '@expo/ui/jetpack-compose/modifiers';
+import { background, combinedClickable, paddingAll } from '@expo/ui/jetpack-compose/modifiers';
 import * as React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, Alert, Pressable } from 'react-native';
 
 import { Section } from '../../components/Page';
 
@@ -36,6 +41,13 @@ export default function DropdownMenuScreen() {
   const [colorfulMenuExpanded, setColorfulMenuExpanded] = React.useState(false);
   const [sectionsMenuExpanded, setSectionsMenuExpanded] = React.useState(false);
   const [submenuExpanded, setSubmenuExpanded] = React.useState(false);
+  const [longPressMenuExpanded, setLongPressMenuExpanded] = React.useState(false);
+  const [longPressTapCount, setLongPressTapCount] = React.useState(0);
+  const [rnTriggerMenuExpanded, setRnTriggerMenuExpanded] = React.useState(false);
+  const [rnTriggerTapCount, setRnTriggerTapCount] = React.useState(0);
+  const [shadowMenuExpanded, setShadowMenuExpanded] = React.useState(false);
+  const [shadowElevation, setShadowElevation] = React.useState<number | undefined>(undefined);
+  const [roundedMenuExpanded, setRoundedMenuExpanded] = React.useState(false);
 
   React.useEffect(() => {
     if (sectionsMenuExpanded === false) {
@@ -58,14 +70,18 @@ export default function DropdownMenuScreen() {
               color={themeBackgroundColor}>
               <DropdownMenu.Trigger>
                 <Button
-                  elementColors={{ containerColor: 'transparent', contentColor: 'blue' }}
-                  trailingIcon="filled.ArrowDropDown"
-                  onPress={() => setThemeMenuExpanded(true)}>
-                  {selectedTheme}
+                  colors={{ containerColor: 'transparent', contentColor: 'blue' }}
+                  onClick={() => setThemeMenuExpanded(true)}>
+                  <ComposeText>{selectedTheme}</ComposeText>
                 </Button>
               </DropdownMenu.Trigger>
               <DropdownMenu.Items>
                 <DropdownMenuItem
+                  elementColors={{
+                    leadingIconColor: '#ff0000',
+                    textColor: '#00ff00',
+                    trailingIconColor: '#0000ff',
+                  }}
                   onClick={() => {
                     setThemeMenuExpanded(false);
                     setSelectedTheme('Light');
@@ -116,6 +132,31 @@ export default function DropdownMenuScreen() {
                     </DropdownMenuItem.TrailingIcon>
                   )}
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  enabled={false}
+                  elementColors={{
+                    leadingIconColor: '#ff0000',
+                    textColor: '#00ff00',
+                    trailingIconColor: '#0000ff',
+                    disabledLeadingIconColor: '#808080',
+                    disabledTextColor: '#808080',
+                    disabledTrailingIconColor: '#808080',
+                  }}
+                  onClick={() => {
+                    Alert.alert('This should not happen');
+                  }}>
+                  <DropdownMenuItem.Text>
+                    <ComposeText>Disabled</ComposeText>
+                  </DropdownMenuItem.Text>
+                  <DropdownMenuItem.LeadingIcon>
+                    <Icon source={settingsIcon} size={24} />
+                  </DropdownMenuItem.LeadingIcon>
+                  {selectedTheme === 'Auto' && (
+                    <DropdownMenuItem.TrailingIcon>
+                      <Icon source={checkIcon} size={24} />
+                    </DropdownMenuItem.TrailingIcon>
+                  )}
+                </DropdownMenuItem>
               </DropdownMenu.Items>
             </DropdownMenu>
           </Host>
@@ -128,9 +169,9 @@ export default function DropdownMenuScreen() {
             onDismissRequest={() => setColorfulMenuExpanded(false)}
             color="#e3b7ff">
             <DropdownMenu.Trigger>
-              <Button variant="bordered" onPress={() => setColorfulMenuExpanded(true)}>
-                Show Colorful Menu
-              </Button>
+              <FilledTonalButton onClick={() => setColorfulMenuExpanded(true)}>
+                <ComposeText>Show Colorful Menu</ComposeText>
+              </FilledTonalButton>
             </DropdownMenu.Trigger>
             <DropdownMenu.Items>
               <DropdownMenuItem
@@ -152,26 +193,25 @@ export default function DropdownMenuScreen() {
                   <ComposeText>My text is green!</ComposeText>
                 </DropdownMenuItem.Text>
                 <DropdownMenuItem.LeadingIcon>
-                  <Icon tintColor="#ff0000" source={starIcon} size={24} />
+                  <Icon tint="#ff0000" source={starIcon} size={24} />
                 </DropdownMenuItem.LeadingIcon>
                 <DropdownMenuItem.TrailingIcon>
-                  <Icon tintColor="#0000ff" source={checkIcon} size={24} />
+                  <Icon tint="#0000ff" source={checkIcon} size={24} />
                 </DropdownMenuItem.TrailingIcon>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setColorfulMenuExpanded(false)}>
                 <DropdownMenuItem.Text>
                   <Row verticalAlignment="center">
                     <ComposeText>I'm very colorful!</ComposeText>
-                    <Switch
+                    <Checkbox
                       value={switchChecked}
-                      variant="checkbox"
-                      elementColors={{
+                      colors={{
                         checkedColor: '#ff0000',
                         disabledCheckedColor: '#00ff00',
                         uncheckedColor: '#0000ff',
                         checkmarkColor: '#ffff00',
                       }}
-                      onValueChange={setSwitchChecked}
+                      onCheckedChange={setSwitchChecked}
                     />
                   </Row>
                 </DropdownMenuItem.Text>
@@ -182,9 +222,8 @@ export default function DropdownMenuScreen() {
                     <ComposeText>Switches can be colorful too!</ComposeText>
                     <Switch
                       value={switch2Checked}
-                      variant="switch"
-                      onValueChange={setSwitch2Checked}
-                      elementColors={{
+                      onCheckedChange={setSwitch2Checked}
+                      colors={{
                         checkedThumbColor: '#ff0000',
                         checkedTrackColor: '#00ff00',
                         uncheckedThumbColor: '#0000ff',
@@ -204,9 +243,9 @@ export default function DropdownMenuScreen() {
             expanded={sectionsMenuExpanded}
             onDismissRequest={() => setSectionsMenuExpanded(false)}>
             <DropdownMenu.Trigger>
-              <Button variant="outlined" onPress={() => setSectionsMenuExpanded(true)}>
-                Show Menu with Sections
-              </Button>
+              <OutlinedButton onClick={() => setSectionsMenuExpanded(true)}>
+                <ComposeText>Show Menu with Sections</ComposeText>
+              </OutlinedButton>
             </DropdownMenu.Trigger>
             <DropdownMenu.Items>
               <DropdownMenuItem
@@ -221,7 +260,7 @@ export default function DropdownMenuScreen() {
                   <Icon source={homeIcon} size={24} />
                 </DropdownMenuItem.LeadingIcon>
               </DropdownMenuItem>
-              <Divider />
+              <HorizontalDivider />
               <DropdownMenu
                 expanded={submenuExpanded}
                 onDismissRequest={() => setSubmenuExpanded(false)}>
@@ -272,18 +311,157 @@ export default function DropdownMenuScreen() {
                   </DropdownMenuItem>
                 </DropdownMenu.Items>
               </DropdownMenu>
-              <Divider />
+              <HorizontalDivider />
               <DropdownMenuItem
+                elementColors={{ textColor: '#B3261E', leadingIconColor: '#B3261E' }}
                 onClick={() => {
                   setSectionsMenuExpanded(false);
-                  console.log('Logout pressed');
+                  console.log('Delete account pressed');
                 }}>
                 <DropdownMenuItem.Text>
-                  <ComposeText>Logout</ComposeText>
+                  <ComposeText>Delete account</ComposeText>
                 </DropdownMenuItem.Text>
                 <DropdownMenuItem.LeadingIcon>
                   <Icon source={logoutIcon} size={24} />
                 </DropdownMenuItem.LeadingIcon>
+              </DropdownMenuItem>
+            </DropdownMenu.Items>
+          </DropdownMenu>
+        </Host>
+      </Section>
+      <Section title="Long-press to open">
+        <Host matchContents>
+          <DropdownMenu
+            expanded={longPressMenuExpanded}
+            onDismissRequest={() => setLongPressMenuExpanded(false)}>
+            <DropdownMenu.Trigger>
+              <ComposeText
+                modifiers={[
+                  background('#e0e0e0'),
+                  paddingAll(12),
+                  combinedClickable({
+                    onClick: () => setLongPressTapCount((count) => count + 1),
+                    onLongClick: () => setLongPressMenuExpanded(true),
+                  }),
+                ]}>
+                {`Long-press to open · taps: ${longPressTapCount}`}
+              </ComposeText>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Items>
+              <DropdownMenuItem onClick={() => setLongPressMenuExpanded(false)}>
+                <DropdownMenuItem.Text>
+                  <ComposeText>Copy</ComposeText>
+                </DropdownMenuItem.Text>
+                <DropdownMenuItem.LeadingIcon>
+                  <Icon source={profileIcon} size={24} />
+                </DropdownMenuItem.LeadingIcon>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setLongPressMenuExpanded(false)}>
+                <DropdownMenuItem.Text>
+                  <ComposeText>Share</ComposeText>
+                </DropdownMenuItem.Text>
+                <DropdownMenuItem.LeadingIcon>
+                  <Icon source={starIcon} size={24} />
+                </DropdownMenuItem.LeadingIcon>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                elementColors={{ textColor: '#B3261E', leadingIconColor: '#B3261E' }}
+                onClick={() => setLongPressMenuExpanded(false)}>
+                <DropdownMenuItem.Text>
+                  <ComposeText>Delete</ComposeText>
+                </DropdownMenuItem.Text>
+                <DropdownMenuItem.LeadingIcon>
+                  <Icon source={logoutIcon} size={24} />
+                </DropdownMenuItem.LeadingIcon>
+              </DropdownMenuItem>
+            </DropdownMenu.Items>
+          </DropdownMenu>
+        </Host>
+      </Section>
+      <Section title="RN trigger long-press (spike)">
+        <Host matchContents>
+          <DropdownMenu
+            expanded={rnTriggerMenuExpanded}
+            onDismissRequest={() => setRnTriggerMenuExpanded(false)}>
+            <DropdownMenu.Trigger>
+              <RNHostView matchContents>
+                <Pressable
+                  onPress={() => setRnTriggerTapCount((c) => c + 1)}
+                  onLongPress={() => setRnTriggerMenuExpanded(true)}
+                  style={{ padding: 16, backgroundColor: '#ffe0b2', borderRadius: 8 }}>
+                  <Text style={{ fontSize: 16 }}>
+                    {`RN child trigger · taps: ${rnTriggerTapCount}`}
+                  </Text>
+                </Pressable>
+              </RNHostView>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Items>
+              <DropdownMenuItem onClick={() => setRnTriggerMenuExpanded(false)}>
+                <DropdownMenuItem.Text>
+                  <ComposeText>Item from RN-anchored menu</ComposeText>
+                </DropdownMenuItem.Text>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                elementColors={{ textColor: '#B3261E' }}
+                onClick={() => setRnTriggerMenuExpanded(false)}>
+                <DropdownMenuItem.Text>
+                  <ComposeText>Destructive item</ComposeText>
+                </DropdownMenuItem.Text>
+              </DropdownMenuItem>
+            </DropdownMenu.Items>
+          </DropdownMenu>
+        </Host>
+      </Section>
+      <Section title="Custom shadowElevation">
+        <Host matchContents>
+          <Column>
+            <Row>
+              <Button onClick={() => setShadowElevation(undefined)}>
+                <ComposeText>Default</ComposeText>
+              </Button>
+              <Button onClick={() => setShadowElevation(1)}>
+                <ComposeText>1 dp</ComposeText>
+              </Button>
+              <Button onClick={() => setShadowElevation(0)}>
+                <ComposeText>0 dp</ComposeText>
+              </Button>
+            </Row>
+            <DropdownMenu
+              expanded={shadowMenuExpanded}
+              onDismissRequest={() => setShadowMenuExpanded(false)}
+              shadowElevation={shadowElevation}>
+              <DropdownMenu.Trigger>
+                <Button onClick={() => setShadowMenuExpanded(true)}>
+                  <ComposeText>{`Open menu (${shadowElevation ?? 'default'})`}</ComposeText>
+                </Button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Items>
+                <DropdownMenuItem onClick={() => setShadowMenuExpanded(false)}>
+                  <DropdownMenuItem.Text>
+                    <ComposeText>Item 1</ComposeText>
+                  </DropdownMenuItem.Text>
+                </DropdownMenuItem>
+              </DropdownMenu.Items>
+            </DropdownMenu>
+          </Column>
+        </Host>
+      </Section>
+      <Section title="Custom cornerRadius">
+        <Host matchContents>
+          <DropdownMenu
+            expanded={roundedMenuExpanded}
+            onDismissRequest={() => setRoundedMenuExpanded(false)}
+            cornerRadius={16}>
+            <DropdownMenu.Trigger>
+              <Button onClick={() => setRoundedMenuExpanded(true)}>
+                <ComposeText>Open rounded menu</ComposeText>
+              </Button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Items>
+              <DropdownMenuItem onClick={() => setRoundedMenuExpanded(false)}>
+                <DropdownMenuItem.Text>
+                  <ComposeText>Item 1</ComposeText>
+                </DropdownMenuItem.Text>
               </DropdownMenuItem>
             </DropdownMenu.Items>
           </DropdownMenu>

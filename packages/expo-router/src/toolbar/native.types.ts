@@ -1,11 +1,13 @@
-import type { ImageRef } from 'expo-image';
-import type { ColorValue } from 'react-native';
+import { SharedRef } from 'expo';
+import type { ColorValue, ImageSourcePropType } from 'react-native';
 import type { SFSymbol } from 'sf-symbols-typescript';
 
 import type { BasicTextStyle } from '../utils/font';
 
 export interface RouterToolbarHostProps {
   children?: React.ReactNode;
+  withImePadding?: boolean;
+  backgroundColor?: ColorValue;
 }
 
 export interface RouterToolbarItemProps {
@@ -14,7 +16,7 @@ export interface RouterToolbarItemProps {
   title?: string;
   systemImageName?: SFSymbol;
   xcassetName?: string;
-  image?: ImageRef | null;
+  image?: InstanceType<SharedRef<'image'>> | null;
   imageRenderingMode?: 'template' | 'original';
   type?: 'normal' | 'fixedSpacer' | 'fluidSpacer' | 'searchBar';
   tintColor?: ColorValue;
@@ -35,4 +37,9 @@ export interface RouterToolbarItemProps {
   accessibilityHint?: string;
   disabled?: boolean;
   onSelected?: () => void;
+  /**
+   * Raw image source for Android toolbar rendering.
+   * On iOS this prop is ignored — icons are resolved via `systemImageName`, `xcassetName`, or `image`.
+   */
+  source?: ImageSourcePropType;
 }

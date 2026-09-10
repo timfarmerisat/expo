@@ -2,12 +2,15 @@ import { setIsAudioActiveAsync } from 'expo-audio';
 import React from 'react';
 import { PixelRatio, ScrollView, StyleSheet } from 'react-native';
 
-import AudioModeSelector from './AudioModeSelector';
-import AudioPlayer from './AudioPlayer';
+import { BodyText } from '../../components/BodyText';
 import HeadingText from '../../components/HeadingText';
 import ListButton from '../../components/ListButton';
+import AudioModeSelector from './AudioModeSelector';
+import AudioPlayer from './AudioPlayer';
 
 export default function AudioScreen(props: any) {
+  const [keepAudioSessionActive, setKeepAudioSessionActive] = React.useState(false);
+
   React.useLayoutEffect(() => {
     props.navigation.setOptions({
       title: 'Audio (expo-audio)',
@@ -20,7 +23,15 @@ export default function AudioScreen(props: any) {
       <ListButton title="Activate Audio" onPress={() => setIsAudioActiveAsync(true)} />
       <ListButton title="Deactivate Audio" onPress={() => setIsAudioActiveAsync(false)} />
       <HeadingText>Audio mode</HeadingText>
-      <AudioModeSelector />
+      <AudioModeSelector
+        keepAudioSessionActive={keepAudioSessionActive}
+        onKeepAudioSessionActiveChange={setKeepAudioSessionActive}
+      />
+      <AudioPlayer
+        source={require('../../../assets/sounds/polonez.mp3')}
+        keepAudioSessionActive={keepAudioSessionActive}
+        style={styles.player}
+      />
       <HeadingText>HTTP player</HeadingText>
       <AudioPlayer
         source={{
@@ -35,6 +46,11 @@ export default function AudioScreen(props: any) {
       />
       <HeadingText>Local asset player</HeadingText>
       <AudioPlayer source={require('../../../assets/sounds/polonez.mp3')} style={styles.player} />
+      <HeadingText>HLS Live Stream</HeadingText>
+      <AudioPlayer
+        source="https://dai.google.com/linear/hls/event/Sid4xiTQTkCT1SLu6rjUSQ/master.m3u8"
+        style={styles.player}
+      />
       <HeadingText>Remote asset with downloadFirst</HeadingText>
       <AudioPlayer
         source={{
@@ -54,5 +70,8 @@ const styles = StyleSheet.create({
   player: {
     borderBottomWidth: 1.0 / PixelRatio.get(),
     borderBottomColor: '#cccccc',
+  },
+  testInstructions: {
+    marginVertical: 8,
   },
 });

@@ -9,6 +9,7 @@ import { getAvailableProjectTemplatesAsync } from '../../ProjectTemplates';
 import { Task } from '../../TasksRunner';
 import * as Workspace from '../../Workspace';
 import { CommandOptions, Parcel, TaskArgs } from '../types';
+import { updatePackageVersions } from './updatePackageVersions';
 
 const { green, yellow, cyan } = chalk;
 
@@ -18,7 +19,8 @@ const { green, yellow, cyan } = chalk;
 export const updateWorkspaceProjects = new Task<TaskArgs>(
   {
     name: 'updateWorkspaceProjects',
-    filesToStage: ['**/package.json', 'yarn.lock'],
+    dependsOn: [updatePackageVersions],
+    filesToStage: ['**/package.json', 'pnpm-lock.yaml'],
   },
   async (parcels: Parcel[], options: CommandOptions) => {
     logger.info('\n📤 Updating workspace projects...');
@@ -30,7 +32,7 @@ export const updateWorkspaceProjects = new Task<TaskArgs>(
 
     const workspaceInfo = await Workspace.getInfoAsync();
 
-    // Append project templates as they're not yarn workspaces.
+    // Append project templates as they're not pnpm workspaces.
     const templates = await getAvailableProjectTemplatesAsync();
     templates.forEach((template) => {
       workspaceInfo[template.packageName] = {
@@ -40,6 +42,7 @@ export const updateWorkspaceProjects = new Task<TaskArgs>(
           .map((dep) => dep.name),
         mismatchedWorkspaceDependencies: [],
         workspacePeerDependencies: [],
+        mismatchedWorkspacePeerDependencies: [],
         workspaceOptionalDependencies: [],
       };
     });
@@ -100,10 +103,14 @@ export const updateWorkspaceProjects = new Task<TaskArgs>(
               continue;
             }
 
-            // Leave tilde and caret as they are, just replace the version.
-            const newVersionRange = options.canary
-              ? state.releaseVersion
-              : currentVersionRange.replace(/([\^~]?).*/, `$1${state.releaseVersion}`);
+            // Normal releases preserve tilde/caret modifiers while replacing
+            // embedded versions. Canary workspace ranges temporarily use bare
+            // `workspace:` so pnpm resolves them to exact versions at pack time.
+            const newVersionRange = resolveUpdatedDependencyVersionRange(
+              currentVersionRange,
+              state.releaseVersion!,
+              options.canary
+            );
 
             dependenciesObject[pkg.packageName] = newVersionRange;
 
@@ -135,7 +142,7 @@ export const updateWorkspaceProjects = new Task<TaskArgs>(
  * @param context.dependencyType What type of dependency we are updating
  * @param context.canary If this is a canary release
  */
-function shouldUpdateDependencyVersion(context: {
+export function shouldUpdateDependencyVersion(context: {
   currentVersionRange?: string;
   dependencyType: string;
   isCanaryRelease: boolean;
@@ -143,6 +150,23 @@ function shouldUpdateDependencyVersion(context: {
   // Do not update the version if there is no current version range
   if (!context.currentVersionRange) {
     return false;
+  }
+
+  if (context.currentVersionRange.startsWith('workspace:')) {
+    const rest = context.currentVersionRange.slice('workspace:'.length);
+    // NOTE(@kitten): Pinned versions (workspace:* and workspace:) never need updating.
+    // pnpm updates these to exact versions.
+    if (rest === '*' || rest === '') {
+      return false;
+    }
+
+    // NOTE(@kitten): Shorthand versions (workspace:^ and workspace:~) need to be turned into
+    // pinned versions for canary releases. pnpm updates these to exact versions.
+    if (rest === '^' || rest === '~') {
+      return context.isCanaryRelease;
+    }
+
+    return true;
   }
 
   // Only update the peerDependencies & optionalDependencies, where the version is `*`, during canary releases
@@ -153,5 +177,28 @@ function shouldUpdateDependencyVersion(context: {
   ) {
     return context.isCanaryRelease;
   }
+
   return true;
+}
+
+function resolveUpdatedDependencyVersionRange(
+  currentVersionRange: string,
+  releaseVersion: string,
+  isCanaryRelease: boolean
+): string {
+  if (isCanaryRelease) {
+    if (currentVersionRange.startsWith('workspace:')) {
+      // NOTE(@kitten): Canary dependencies must be exact. Bare `workspace:` lets
+      // pnpm resolve the dependency to its updated local canary version at pack time,
+      // while avoiding duplicating version-resolution logic here
+      return 'workspace:';
+    }
+    return releaseVersion;
+  }
+
+  if (currentVersionRange.startsWith('workspace:')) {
+    return currentVersionRange.replace(/^workspace:([\^~]?).*/, `workspace:$1${releaseVersion}`);
+  } else {
+    return currentVersionRange.replace(/([\^~]?).*/, `$1${releaseVersion}`);
+  }
 }

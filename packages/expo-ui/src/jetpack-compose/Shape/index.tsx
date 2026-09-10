@@ -1,7 +1,7 @@
 import { requireNativeView } from 'expo';
 import { type ColorValue } from 'react-native';
 
-import { ExpoModifier } from '../../types';
+import type { ExpoModifier } from '../../types';
 import { createViewModifierEventListener } from '../modifiers/utils';
 
 type ShapeType =
@@ -35,7 +35,7 @@ export type CornerRadii = {
   bottomEnd?: number;
 };
 
-export type ShapeProps = {
+export interface ShapeProps {
   /**
    * Corner rounding percentage. Multiplied by the shorter dimension of the view to produce pixel values.
    * @default 0.0
@@ -71,7 +71,7 @@ export type ShapeProps = {
    * Modifiers for the component.
    */
   modifiers?: ExpoModifier[];
-};
+}
 
 type NativeShapeProps = Omit<ShapeProps, 'modifiers'> & {
   type: ShapeType;

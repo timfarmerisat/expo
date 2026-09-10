@@ -1,19 +1,19 @@
-// import { resolveDestinationsAsync } from './appleDestinations';
-import { promptDeviceAsync } from './promptDevice';
 import * as Log from '../../../log';
 import {
   AppleDeviceManager,
   ensureSimulatorOpenAsync,
 } from '../../../start/platforms/ios/AppleDeviceManager';
 import { sortDefaultDeviceToBeginningAsync } from '../../../start/platforms/ios/promptAppleDevice';
-import { OSType } from '../../../start/platforms/ios/simctl';
+import type { OSType } from '../../../start/platforms/ios/simctl';
 import * as SimControl from '../../../start/platforms/ios/simctl';
 import { uniqBy } from '../../../utils/array';
 import { CommandError } from '../../../utils/errors';
 import { profile } from '../../../utils/profile';
 import { logDeviceArgument } from '../../hints';
-import { BuildProps } from '../XcodeBuild.types';
+import type { BuildProps } from '../XcodeBuild.types';
 import * as AppleDevice from '../appleDevice/AppleDevice';
+// import { resolveDestinationsAsync } from './appleDestinations';
+import { promptDeviceAsync } from './promptDevice';
 
 type AnyDevice = SimControl.Device | AppleDevice.ConnectedDevice;
 
@@ -29,7 +29,7 @@ async function getDevicesAsync({
       (
         await Promise.all([
           AppleDevice.getConnectedDevicesAsync(),
-          await profile(SimControl.getDevicesAsync)(),
+          profile(SimControl.getDevicesAsync)(),
           // resolveDestinationsAsync(buildProps),
         ])
       ).flat(),

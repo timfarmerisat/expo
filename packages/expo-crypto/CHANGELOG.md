@@ -8,9 +8,73 @@
 
 ### 🐛 Bug fixes
 
-- Access `crypto` on `globalThis` rather than just `window.crypto` ([#43405](https://github.com/expo/expo/pull/43405) by [@bradleyayers](https://github.com/bradleyayers))
+### 💡 Others
+
+## 58.0.0 — 2026-09-10
+
+### 🐛 Bug fixes
+
+- [Web] Respect the bounds of typed-array views in `Crypto.AES`, so sealed data passed as a `Uint8Array` that views part of a larger buffer no longer reads the wrong bytes and fails to decrypt. ([#49196](https://github.com/expo/expo/pull/49196) by [@dennytosp](https://github.com/dennytosp))
+- [Web] Reject sealed data that is too short to hold its IV and authentication tag in `AESSealedData.fromCombined()`, matching iOS and Android. ([#49196](https://github.com/expo/expo/pull/49196) by [@dennytosp](https://github.com/dennytosp))
+- Fix `AESSealedData.fromCombined()` throwing on Android when given a base64-encoded string. ([#47317](https://github.com/expo/expo/pull/47317) by [@gabrieldonadel](https://github.com/gabrieldonadel))
+
+## 57.0.1 - 2026-07-15
+
+_This version does not introduce any user-facing changes._
+
+## 57.0.0 - 2026-06-25
+
+_This version does not introduce any user-facing changes._
+
+## 56.0.4 — 2026-05-26
 
 ### 💡 Others
+
+- Improve `randomUUID()` performance on iOS. ([#46122](https://github.com/expo/expo/pull/46122) by [@kudo](https://github.com/kudo))
+
+## 56.0.3 — 2026-05-06
+
+_This version does not introduce any user-facing changes._
+
+## 56.0.2 — 2026-05-06
+
+_This version does not introduce any user-facing changes._
+
+## 56.0.1 — 2026-05-06
+
+_This version does not introduce any user-facing changes._
+
+## 56.0.0 — 2026-05-05
+
+### 🛠 Breaking changes
+
+- Bumped minimum iOS/tvOS version to 16.4, macOS to 13.4. ([#43296](https://github.com/expo/expo/pull/43296) by [@tsapeta](https://github.com/tsapeta))
+
+## 55.0.14 - 2026-04-09
+
+_This version does not introduce any user-facing changes._
+
+## 55.0.13 - 2026-04-07
+
+_This version does not introduce any user-facing changes._
+
+## 55.0.12 - 2026-04-02
+
+_This version does not introduce any user-facing changes._
+
+## 55.0.11 - 2026-04-02
+
+_This version does not introduce any user-facing changes._
+
+## 55.0.10 - 2026-03-17
+
+_This version does not introduce any user-facing changes._
+
+## 55.0.9 - 2026-03-05
+
+### 🐛 Bug fixes
+
+- Access `crypto` on `globalThis` rather than just `window.crypto` ([#43405](https://github.com/expo/expo/pull/43405) by [@bradleyayers](https://github.com/bradleyayers))
 
 ## 55.0.8 — 2026-02-25
 

@@ -3,13 +3,25 @@ title: Switch
 description: A Jetpack Compose Switch component for toggle controls.
 sourceCodeUrl: 'https://github.com/expo/expo/tree/main/packages/expo-ui'
 packageName: '@expo/ui'
-platforms: ['android']
+platforms: ['android', 'expo-go']
 ---
 
 import APISection from '~/components/plugins/APISection';
 import { APIInstallSection } from '~/components/plugins/InstallSection';
+import { ComponentExample } from '~/ui/components/ComponentExample';
+import { ContentSpotlight } from '~/ui/components/ContentSpotlight';
 
-Expo UI Switch matches the official Jetpack Compose [Switch](https://developer.android.com/develop/ui/compose/components/switch) and [Checkbox](https://developer.android.com/develop/ui/compose/components/checkbox) APIs and supports switch, checkbox, and button variants.
+> **info** For cross-platform usage, see the universal [`Switch`](../universal/switch) — it renders the appropriate native component per platform.
+
+Expo UI Switch matches the official Jetpack Compose [Switch](https://developer.android.com/develop/ui/compose/components/switch) API.
+
+<ContentSpotlight
+  variant="component"
+  aspect="landscape"
+  src="/static/images/expo-ui/switch/android-light.webp"
+  darkSrc="/static/images/expo-ui/switch/android-dark.webp"
+  alt="Two Material 3 switches showing on and off states"
+/>
 
 ## Installation
 
@@ -19,9 +31,13 @@ Expo UI Switch matches the official Jetpack Compose [Switch](https://developer.a
 
 ### Toggle switch
 
-Use the `variant="switch"` prop to display a standard toggle switch.
+<ComponentExample
+  title="ToggleSwitchExample.tsx"
+  src="/static/images/expo-ui/examples/switch-toggle-android-light.webp"
+  darkSrc="/static/images/expo-ui/examples/switch-toggle-android-dark.webp"
+  alt="A Material 3 switch in its unchecked state">
 
-```tsx ToggleSwitchExample.tsx
+```tsx
 import { useState } from 'react';
 import { Host, Switch } from '@expo/ui/jetpack-compose';
 
@@ -30,67 +46,102 @@ export default function ToggleSwitchExample() {
 
   return (
     <Host matchContents>
-      <Switch
-        value={checked}
-        onValueChange={setChecked}
-        label="Play music"
-        variant="switch"
-        color="#6200EE"
-      />
+      <Switch value={checked} onCheckedChange={setChecked} />
     </Host>
   );
 }
 ```
 
-### Checkbox
+</ComponentExample>
 
-Use the `variant="checkbox"` prop to display a checkbox control.
+### Custom colors
 
-```tsx CheckboxExample.tsx
+<ComponentExample
+  title="CustomColorsExample.tsx"
+  src="/static/images/expo-ui/examples/switch-colors-android-light.webp"
+  darkSrc="/static/images/expo-ui/examples/switch-colors-android-dark.webp"
+  alt="A checked switch with a purple thumb on a pale lavender track">
+
+```tsx
 import { useState } from 'react';
 import { Host, Switch } from '@expo/ui/jetpack-compose';
 
-export default function CheckboxExample() {
+export default function CustomColorsExample() {
   const [checked, setChecked] = useState(false);
 
   return (
     <Host matchContents>
       <Switch
         value={checked}
-        onValueChange={setChecked}
-        label="Accept terms"
-        variant="checkbox"
-        color="#6200EE"
+        onCheckedChange={setChecked}
+        colors={{
+          checkedThumbColor: '#6200EE',
+          checkedTrackColor: '#EDE9FE',
+          uncheckedThumbColor: '#9CA3AF',
+          uncheckedTrackColor: '#F3F4F6',
+          uncheckedBorderColor: '#D1D5DB',
+        }}
       />
     </Host>
   );
 }
 ```
 
-### Button variant
+</ComponentExample>
 
-Use the `variant="button"` prop to display a toggle button.
+### Custom thumb content
 
-```tsx ButtonVariantExample.tsx
+Use `Switch.ThumbContent` to render a custom element inside the thumb. `Switch.DefaultIconSize` gives you the M3 default icon size so your content fits perfectly.
+
+<ComponentExample
+  title="ThumbContentExample.tsx"
+  src="/static/images/expo-ui/examples/switch-thumb-android-light.webp"
+  darkSrc="/static/images/expo-ui/examples/switch-thumb-android-dark.webp"
+  alt="A checked switch whose purple thumb contains a white circle, reading as a ring">
+
+```tsx
 import { useState } from 'react';
-import { Host, Switch } from '@expo/ui/jetpack-compose';
+import { Host, Switch, Box } from '@expo/ui/jetpack-compose';
+import {
+  size,
+  clip,
+  background,
+  Shapes,
+} from '@expo/ui/jetpack-compose/modifiers';
 
-export default function ButtonVariantExample() {
+export default function ThumbContentExample() {
   const [checked, setChecked] = useState(false);
 
   return (
     <Host matchContents>
       <Switch
         value={checked}
-        onValueChange={setChecked}
-        label="Notifications"
-        variant="button"
-        color="#6200EE"
-      />
+        onCheckedChange={setChecked}
+        colors={{
+          checkedThumbColor: '#7C3AED',
+          checkedTrackColor: '#EDE9FE',
+          checkedIconColor: '#7C3AED',
+          uncheckedThumbColor: '#9CA3AF',
+          uncheckedTrackColor: '#F3F4F6',
+          uncheckedBorderColor: '#D1D5DB',
+          uncheckedIconColor: '#9CA3AF',
+        }}>
+        <Switch.ThumbContent>
+          <Box
+            modifiers={[
+              size(Switch.DefaultIconSize, Switch.DefaultIconSize),
+              clip(Shapes.Circle),
+              background(checked ? '#FFFFFF' : '#E5E7EB'),
+            ]}
+          />
+        </Switch.ThumbContent>
+      </Switch>
     </Host>
   );
 }
 ```
+
+</ComponentExample>
 
 ## API
 
@@ -98,4 +149,7 @@ export default function ButtonVariantExample() {
 import { Switch } from '@expo/ui/jetpack-compose';
 ```
 
-<APISection packageName="expo-ui/jetpack-compose/switch" apiName="Switch" />
+<APISection
+  packageName="expo-ui/jetpack-compose/switch"
+  apiName="Switch"
+/>

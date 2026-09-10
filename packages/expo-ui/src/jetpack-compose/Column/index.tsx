@@ -1,15 +1,15 @@
 import { requireNativeView } from 'expo';
 
 import {
-  HorizontalAlignment,
-  HorizontalArrangement,
-  PrimitiveBaseProps,
-  VerticalAlignment,
-  VerticalArrangement,
+  type HorizontalAlignment,
+  type HorizontalArrangement,
+  type PrimitiveBaseProps,
+  type VerticalAlignment,
+  type VerticalArrangement,
   transformProps,
 } from '../layout-types';
 
-export type ColumnProps = {
+export interface ColumnProps extends PrimitiveBaseProps {
   children?: React.ReactNode;
   /**
    * Horizontal arrangement of children.
@@ -27,7 +27,7 @@ export type ColumnProps = {
    * Vertical alignment of children.
    */
   verticalAlignment?: VerticalAlignment;
-} & PrimitiveBaseProps;
+}
 
 const ColumnNativeView: React.ComponentType<ColumnProps> = requireNativeView(
   'ExpoUI',

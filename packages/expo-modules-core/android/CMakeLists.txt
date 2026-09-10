@@ -12,3 +12,12 @@ include(${CMAKE_SOURCE_DIR}/cmake/jsi.cmake)
 
 # defines expo-modules-core target
 include(${CMAKE_SOURCE_DIR}/cmake/main.cmake)
+
+# defines expo-modules-worklets target (worklets integration), only when react-native-worklets is installed
+if (REACT_NATIVE_WORKLETS_DIR)
+  include(${CMAKE_SOURCE_DIR}/cmake/worklets.cmake)
+endif ()
+
+if (EXPO_MODULES_V2_CPP_DIR AND EXISTS "${EXPO_MODULES_V2_CPP_DIR}/CMakeLists.txt")
+  include(${CMAKE_SOURCE_DIR}/cmake/modulesV2.cmake)
+endif ()

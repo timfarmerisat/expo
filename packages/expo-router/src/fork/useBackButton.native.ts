@@ -1,9 +1,14 @@
 /**
  * This file is unchanged, except for removing eslint comments
  */
-import type { NavigationContainerRef, ParamListBase } from '@react-navigation/native';
 import * as React from 'react';
 import { BackHandler } from 'react-native';
+
+import {
+  CommonActions,
+  type NavigationContainerRef,
+  type ParamListBase,
+} from '../react-navigation/native';
 
 export function useBackButton(ref: React.RefObject<NavigationContainerRef<ParamListBase>>) {
   React.useEffect(() => {
@@ -15,7 +20,7 @@ export function useBackButton(ref: React.RefObject<NavigationContainerRef<ParamL
       }
 
       if (navigation.canGoBack()) {
-        navigation.goBack();
+        navigation.dispatchSync(CommonActions.goBack());
 
         return true;
       }

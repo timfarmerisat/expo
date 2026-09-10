@@ -1,8 +1,8 @@
 import { type ColorValue } from 'react-native';
 
-import { type AnimatedValue } from './animation';
+import { type AnimatedValue, type AnimationSpec } from './animation';
 import { createModifier, createModifierWithEventListener } from './createModifier';
-export { type ExpoModifier } from '../../types';
+export { type ExpoModifier, type ModifierConfig } from '../../types';
 export {
   animated,
   spring,
@@ -91,6 +91,17 @@ export const width = (value: number) => createModifier('width', { width: value }
 export const height = (value: number) => createModifier('height', { height: value });
 
 /**
+ * Constrain the size of the wrapped layout only when it would be
+ * otherwise unconstrained: the `minWidth` and `minHeight` constraints
+ * are only applied when the incoming corresponding constraint is `0`.
+ * @param options.minWidth - Minimum width in dp.
+ * @param options.minHeight - Minimum height in dp.
+ * @see [Compose `defaultMinSize` modifier](https://developer.android.com/reference/kotlin/androidx/compose/ui/Modifier#%28androidx.compose.ui.Modifier%29.defaultMinSize%28androidx.compose.ui.unit.Dp%2Candroidx.compose.ui.unit.Dp%29)
+ */
+export const defaultMinSize = (options: { minWidth?: number; minHeight?: number }) =>
+  createModifier('defaultMinSize', options);
+
+/**
  * Wraps the width to the content size.
  * @param alignment - Optional horizontal alignment ('start', 'centerHorizontally', 'end').
  */
@@ -103,6 +114,16 @@ export const wrapContentWidth = (alignment?: 'start' | 'centerHorizontally' | 'e
  */
 export const wrapContentHeight = (alignment?: 'top' | 'centerVertically' | 'bottom') =>
   createModifier('wrapContentHeight', alignment ? { alignment } : {});
+
+// =============================================================================
+// Inset Modifiers
+// =============================================================================
+
+/**
+ * Adds padding to avoid the software keyboard (IME).
+ * When the keyboard is visible, padding is added to keep content above it.
+ */
+export const imePadding = () => createModifier('imePadding');
 
 // =============================================================================
 // Position Modifiers
@@ -121,9 +142,12 @@ export const offset = (x: number, y: number) => createModifier('offset', { x, y 
 
 /**
  * Sets the background color.
- * @param color - Color string (hex, e.g., '#FF0000').
+ * Pass an `animationSpec` to smoothly animate between colors when the prop changes (backed by `animateColorAsState`).
+ * @param color - A color string (hex, e.g., `'#FF0000'`).
+ * @param options.animationSpec - Optional spec — animate between color changes.
  */
-export const background = (color: ColorValue) => createModifier('background', { color });
+export const background = (color: ColorValue, options?: { animationSpec?: AnimationSpec }) =>
+  createModifier('background', { color, animationSpec: options?.animationSpec });
 
 /**
  * Adds a border around the view.
@@ -138,6 +162,42 @@ export const border = (borderWidth: number, borderColor: ColorValue) =>
  * @param elevation - Shadow elevation in dp.
  */
 export const shadow = (elevation: number) => createModifier('shadow', { elevation });
+
+/**
+ * Options for the `dropShadow` and `innerShadow` modifiers.
+ */
+export type ShadowConfig = {
+  /** Blur radius of the shadow in dp. */
+  radius?: number;
+  /** Amount to expand (positive) or contract (negative) the shadow geometry in dp. */
+  spread?: number;
+  /** Shadow color string (hex). Defaults to black. */
+  color?: ColorValue;
+  /** Horizontal offset of the shadow in dp. */
+  offsetX?: number;
+  /** Vertical offset of the shadow in dp. */
+  offsetY?: number;
+  /** Shadow opacity, from 0.0 to 1.0. */
+  alpha?: number;
+};
+
+/**
+ * Draws a shadow behind the view with control over the blur radius, spread, offset, and color. Unlike
+ * `shadow`, it does not require an elevation value.
+ * @param shape - The shape of the shadow, for example `Shapes.RoundedCorner(16)` or `Shapes.Circle`.
+ * @param config - Options that control the shadow's appearance.
+ */
+export const dropShadow = (shape: BuiltinShape, config: ShadowConfig = {}) =>
+  createModifier('dropShadow', { shape, ...config });
+
+/**
+ * Draws a shadow inside the view to create an inset effect. The view's `background` must come before
+ * this modifier for the shadow to render.
+ * @param shape - The shape of the shadow, for example `Shapes.RoundedCorner(16)` or `Shapes.Circle`.
+ * @param config - Options that control the shadow's appearance.
+ */
+export const innerShadow = (shape: BuiltinShape, config: ShadowConfig = {}) =>
+  createModifier('innerShadow', { shape, ...config });
 
 /**
  * Sets the opacity/alpha of the view.
@@ -243,6 +303,18 @@ export const align = (alignment: Alignment) => createModifier('align', { alignme
  */
 export const matchParentSize = () => createModifier('matchParentSize');
 
+/**
+ * Marks a composable as the anchor for an `ExposedDropdownMenuBox`.
+ * Only works when used inside `ExposedDropdownMenuBox`.
+ * @param type - Anchor type. Currently only `'primaryNotEditable'` is supported.
+ * @param enabled - Whether the anchor is enabled. Defaults to `true`.
+ */
+export const menuAnchor = (type?: 'primaryNotEditable', enabled?: boolean) =>
+  createModifier('menuAnchor', {
+    ...(type && { type }),
+    ...(typeof enabled === 'boolean' && { enabled }),
+  });
+
 // =============================================================================
 // Interaction Modifiers
 // =============================================================================
@@ -259,12 +331,107 @@ export const clickable = (handler: () => void, options?: { indication?: boolean 
   });
 
 /**
+ * Makes the view respond to both click and long-click gestures.
+ * Wraps Compose's `Modifier.combinedClickable`. Useful for triggering a `DropdownMenu`
+ * on long-press while keeping a separate short-press action.
+ * @param handlers.onClick - Function to call on a short tap.
+ * @param handlers.onLongClick - Function to call on a long press.
+ * @param options - Optional configuration.
+ * @param options.indication - Whether to show a ripple indication. Defaults to `true`.
+ */
+export const combinedClickable = (
+  handlers: { onClick?: () => void; onLongClick?: () => void },
+  options?: { indication?: boolean }
+) =>
+  createModifierWithEventListener(
+    'combinedClickable',
+    (params: { event: 'click' | 'longClick' }) => {
+      if (params.event === 'click') {
+        handlers.onClick?.();
+      } else if (params.event === 'longClick') {
+        handlers.onLongClick?.();
+      }
+    },
+    { indication: options?.indication ?? true }
+  );
+
+/**
  * Makes the view selectable, like a radio button row.
  * @param selected - Whether the item is currently selected.
  * @param handler - Function to call when the item is clicked.
+ * @param role - Optional semantic role for accessibility: 'radioButton', 'checkbox', 'switch', or 'tab'.
  */
-export const selectable = (selected: boolean, handler: () => void) =>
-  createModifierWithEventListener('selectable', handler, { selected });
+export const selectable = (
+  selected: boolean,
+  handler: () => void,
+  role?: 'radioButton' | 'checkbox' | 'switch' | 'tab'
+) => createModifierWithEventListener('selectable', handler, { selected, role });
+
+/**
+ * Marks a column/row as a selectable group for accessibility.
+ * Screen readers will treat the children as a group of selectable items.
+ */
+export const selectableGroup = () => createModifier('selectableGroup');
+
+/**
+ * Makes the view toggleable with accessibility semantics.
+ * Use this to make a row containing a checkbox or switch tappable as a whole.
+ * @param value - The current toggle state.
+ * @param handler - Function to call when toggled.
+ * @param options - Optional configuration.
+ * @param options.role - The semantic role for accessibility: `'checkbox'`, `'radioButton'`, `'switch'`, or `'tab'`.
+ */
+export const toggleable = (
+  value: boolean,
+  handler: () => void,
+  options?: { role?: 'checkbox' | 'radioButton' | 'switch' | 'tab' }
+) => createModifierWithEventListener('toggleable', handler, { value, role: options?.role });
+
+// =============================================================================
+// Lifecycle Modifiers
+// =============================================================================
+
+/**
+ * Calls the handler when the composable's visibility changes (for example, enters or leaves the viewport in a lazy list).
+ * @param handler - Function called with `true` when visible, `false` when not.
+ * @param options - Optional configuration.
+ * @param options.minDurationMs - Minimum duration in ms before the callback fires. Default is 0.
+ * @param options.minFractionVisible - Fraction of the view that must be visible (0.0 to 1.0). Default is 1.0.
+ */
+export const onVisibilityChanged = (
+  handler: (isVisible: boolean) => void,
+  options?: { minDurationMs?: number; minFractionVisible?: number }
+) =>
+  createModifierWithEventListener(
+    'onVisibilityChanged',
+    (params: { isVisible: boolean }) => handler(params.isVisible),
+    {
+      minDurationMs: options?.minDurationMs,
+      minFractionVisible: options?.minFractionVisible,
+    }
+  );
+
+/**
+ * Calls the handler whenever the composable's measured size changes. Sizes are in dp.
+ * @param handler - Function called with the new size.
+ */
+export const onSizeChanged = (handler: (size: { width: number; height: number }) => void) =>
+  createModifierWithEventListener('onSizeChanged', (size: { width: number; height: number }) =>
+    handler(size)
+  );
+
+/**
+ * Calls the handler whenever the composable is positioned, with its position and size.
+ * `x` and `y` are relative to the window. All values are in dp.
+ * @param handler - Function called with the new layout.
+ */
+export const onGloballyPositioned = (
+  handler: (layout: { x: number; y: number; width: number; height: number }) => void
+) =>
+  createModifierWithEventListener(
+    'onGloballyPositioned',
+    (layout: { x: number; y: number; width: number; height: number }) => handler(layout)
+  );
 
 // =============================================================================
 // Utility Modifiers
@@ -275,6 +442,11 @@ export const selectable = (selected: boolean, handler: () => void) =>
  * @param tag - Test ID string.
  */
 export const testID = (tag: string) => createModifier('testID', { testID: tag });
+
+/**
+ * Applies semantic properties. Wraps `Modifier.semantics { ... }`.
+ */
+export const semantics = (params: { contentType?: string }) => createModifier('semantics', params);
 
 // =============================================================================
 // Clip Modifier & Shapes
@@ -398,3 +570,41 @@ export const Shapes = {
  * @param shape - A shape from `Shapes`, e.g. `Shapes.Circle` or `Shapes.Material.Heart`.
  */
 export const clip = (shape: BuiltinShape) => createModifier('clip', { shape });
+
+/**
+ * Clips a carousel item's mask to the given shape, so the item keeps its shape while the
+ * carousel masks it. Wraps Compose's `CarouselItemScope.maskClip`.
+ *
+ * A carousel reveals each item through a mask, so a plain `clip` on the item loses its
+ * corners as the item squeezes into a peek. Clipping the mask itself keeps them.
+ *
+ * Only works on a child of a Carousel component. Like `clip`, it only affects what is
+ * drawn after it in the modifier chain, so place it before `background`.
+ *
+ * @example
+ * ```tsx
+ * modifiers={[size(300, 200), maskClip(Shapes.RoundedCorner(28)), background('#6200EE')]}
+ * ```
+ */
+export const maskClip = (shape: BuiltinShape) => createModifier('maskClip', { shape });
+
+// =============================================================================
+// Scroll Modifiers
+// =============================================================================
+
+/**
+ * Makes the view vertically scrollable.
+ * Wraps `Modifier.verticalScroll(rememberScrollState())`.
+ * Use on a Column to create a non-lazy scrollable container.
+ */
+export const verticalScroll = () => createModifier('verticalScroll');
+
+/**
+ * Makes the view horizontally scrollable.
+ * Wraps `Modifier.horizontalScroll(rememberScrollState())`.
+ * Use on a Row to create a non-lazy scrollable container.
+ */
+export const horizontalScroll = () => createModifier('horizontalScroll');
+
+export { createModifier, createModifierWithEventListener } from './createModifier';
+export { createViewModifierEventListener } from './utils';

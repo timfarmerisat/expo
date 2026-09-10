@@ -1,0 +1,350 @@
+'use client';
+import * as React from 'react';
+import { use } from 'react';
+
+import { NavigationActivityProvider } from '../../views/NavigationActivityContext';
+import type {
+  NavigationAction,
+  NavigationState,
+  ParamListBase,
+  PartialState,
+  Router,
+} from '../routers';
+import { type AddListener, NavigationBuilderContext } from './NavigationBuilderContext';
+import { NavigationProvider } from './NavigationProvider';
+import { SceneView } from './SceneView';
+import { ThemeContext } from './theming/ThemeContext';
+import type {
+  Descriptor,
+  DescriptorRouteProp,
+  EventMapBase,
+  EventMapCore,
+  NavigationHelpers,
+  NavigationProp,
+  RouteConfig,
+  RouteProp,
+} from './types';
+import type { NavigationEventEmitter } from './useEventEmitter';
+import { useNavigationCache } from './useNavigationCache';
+import { useRouteCache } from './useRouteCache';
+
+export type ScreenConfigWithParent<
+  State extends NavigationState,
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  ScreenOptions extends {},
+  EventMap extends EventMapBase,
+> = {
+  options: (ScreenOptionsOrCallback<ScreenOptions> | undefined)[] | undefined;
+  layout: ScreenLayout<ScreenOptions> | undefined;
+  props: RouteConfig<ParamListBase, string, State, ScreenOptions, EventMap, unknown>;
+};
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+type ScreenLayout<ScreenOptions extends {}> = (props: {
+  route: RouteProp<ParamListBase, string>;
+  options: ScreenOptions;
+  navigation: any;
+  theme: ReactNavigation.Theme;
+  children: React.ReactElement;
+}) => React.ReactElement;
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+type ScreenOptionsOrCallback<ScreenOptions extends {}> =
+  | ScreenOptions
+  | ((props: {
+      route: DescriptorRouteProp<ParamListBase, string>;
+      navigation: any;
+      theme: ReactNavigation.Theme;
+    }) => ScreenOptions);
+
+type Options<
+  State extends NavigationState,
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  ScreenOptions extends {},
+  EventMap extends EventMapBase,
+> = {
+  routes: State['routes'];
+  routeNames: State['routeNames'];
+  screens: Record<string, ScreenConfigWithParent<State, ScreenOptions, EventMap>>;
+  activityEnabled: boolean | number | undefined;
+  activityDefaultThreshold: number;
+  navigation: NavigationHelpers<ParamListBase>;
+  screenOptions: ScreenOptionsOrCallback<ScreenOptions> | undefined;
+  screenLayout: ScreenLayout<ScreenOptions> | undefined;
+  state: State;
+  addListener: AddListener;
+  router: Router<State, NavigationAction>;
+  emitter: NavigationEventEmitter<EventMapCore<State>>;
+};
+
+/**
+ * Hook to create descriptor objects for the child routes.
+ *
+ * A descriptor object provides 3 things:
+ * - Helper method to render a screen
+ * - Options specified by the screen for the navigator
+ * - Navigation object intended for the route
+ */
+export function useDescriptors<
+  State extends NavigationState,
+  ActionHelpers extends Record<string, () => void>,
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  ScreenOptions extends {},
+  EventMap extends EventMapBase,
+>({
+  routes,
+  routeNames,
+  screens,
+  activityEnabled,
+  activityDefaultThreshold,
+  navigation,
+  screenOptions,
+  screenLayout,
+  state,
+  addListener,
+  router,
+  emitter,
+}: Options<State, ScreenOptions, EventMap>) {
+  const theme = use(ThemeContext);
+  const [options, setOptions] = React.useState<Record<string, ScreenOptions>>({});
+  const { handleAction, resetNavigator } = use(NavigationBuilderContext);
+
+  const context = React.useMemo(
+    () => ({
+      navigation,
+      handleAction,
+      resetNavigator,
+      addListener,
+    }),
+    [navigation, handleAction, resetNavigator, addListener]
+  );
+
+  const getNavigation = useNavigationCache<State, ScreenOptions, EventMap, ActionHelpers>({
+    routes,
+    routeNames,
+    navigation,
+    setOptions,
+    router,
+    // The same runtime emitter handles custom events; this generic only exposes core events here.
+    emitter: emitter as unknown as NavigationEventEmitter<EventMap>,
+  });
+
+  const cachedRoutes = useRouteCache(routes);
+  const emitRemovalEvent = React.useCallback(
+    (routeKey: string, type: 'removePrevented' | 'removed', action: NavigationAction) =>
+      emitter.emit({ type, target: routeKey, data: { action } }),
+    [emitter]
+  );
+
+  const getOptions = (
+    route: DescriptorRouteProp<ParamListBase, string>,
+    navigation: NavigationProp<
+      ParamListBase,
+      string,
+      string | undefined,
+      State,
+      ScreenOptions,
+      EventMap
+    >,
+    overrides: Record<string, ScreenOptions>
+  ) => {
+    const config = screens[route.name]!;
+    const screen = config.props;
+
+    const optionsList = [
+      // The default `screenOptions` passed to the navigator
+      screenOptions,
+      // The `screenOptions` props passed to `Group` elements
+      ...((config.options
+        ? config.options.filter(Boolean)
+        : []) as ScreenOptionsOrCallback<ScreenOptions>[]),
+      // The `options` prop passed to `Screen` elements,
+      screen.options,
+      // The options set via `navigation.setOptions`
+      overrides,
+    ];
+
+    return optionsList.reduce<ScreenOptions>(
+      (acc, curr) =>
+        Object.assign(
+          acc,
+          // @ts-expect-error: we check for function but TS still complains
+          typeof curr !== 'function' ? curr : curr({ route, navigation, theme })
+        ),
+      {} as ScreenOptions
+    );
+  };
+
+  const render = (
+    route: RouteProp<ParamListBase, string>,
+    navigation: NavigationProp<
+      ParamListBase,
+      string,
+      string | undefined,
+      State,
+      ScreenOptions,
+      EventMap
+    >,
+    customOptions: ScreenOptions,
+    routeState: NavigationState | PartialState<NavigationState> | undefined
+  ) => {
+    const config = screens[route.name]!;
+    const screen = config.props;
+
+    const clearOptions = () =>
+      setOptions((o) => {
+        if (route.key in o) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { [route.key]: _, ...rest } = o;
+          return rest;
+        }
+
+        return o;
+      });
+
+    const layout =
+      // The `layout` prop passed to `Screen` elements,
+      screen.layout ??
+      // The `screenLayout` props passed to `Group` elements
+      config.layout ??
+      // The default `screenLayout` passed to the navigator
+      screenLayout;
+
+    let element = (
+      <SceneView
+        navigation={navigation}
+        route={route}
+        screen={screen}
+        routeState={routeState}
+        options={customOptions}
+        clearOptions={clearOptions}
+        emitRemovalEvent={emitRemovalEvent}
+      />
+    );
+
+    if (layout != null) {
+      element = layout({
+        route,
+        navigation,
+        options: customOptions,
+        // @ts-expect-error: in practice `theme` will be defined
+        theme,
+        children: element,
+      });
+    }
+
+    const activityThreshold = getActivityThreshold(
+      screen.activityEnabled ?? activityEnabled,
+      activityDefaultThreshold
+    );
+
+    return (
+      <NavigationActivityProvider key={route.key} activityThreshold={activityThreshold}>
+        <NavigationBuilderContext.Provider value={context}>
+          <NavigationProvider route={route} navigation={navigation}>
+            {element}
+          </NavigationProvider>
+        </NavigationBuilderContext.Provider>
+      </NavigationActivityProvider>
+    );
+  };
+
+  // TODO: Unify this with the standard-navigation descriptor-map type.
+  type DescriptorMap = Record<
+    string,
+    Descriptor<
+      ScreenOptions,
+      NavigationProp<ParamListBase, string, string | undefined, State, ScreenOptions, EventMap> &
+        ActionHelpers,
+      RouteProp<ParamListBase>
+    >
+  >;
+
+  const descriptors = cachedRoutes.reduce<DescriptorMap>((acc, route, i) => {
+    const navigation = getNavigation(route, route.isPreloaded === true);
+
+    if (screens[route.name] === undefined) {
+      acc[route.key] = {
+        route,
+        // @ts-expect-error: it's missing action helpers, fix later
+        navigation,
+        options: {} as ScreenOptions,
+        render: () => null,
+      };
+
+      return acc;
+    }
+
+    const customOptions = getOptions(route, navigation, options[route.key]!);
+    const element = render(route, navigation, customOptions, routes[i]!.state);
+
+    acc[route.key] = {
+      route,
+      // @ts-expect-error: it's missing action helpers, fix later
+      navigation,
+      render() {
+        return element;
+      },
+      options: customOptions as ScreenOptions,
+      routeSource: screens[route.name]?.props.routeSource,
+    };
+
+    return acc;
+  }, {});
+
+  // Placeholder descriptors need a cast because `useNavigationCache` adds action helpers at
+  // runtime, but its return type omits them.
+  // TODO: Fix the `useNavigationCache` return type and remove these casts.
+  // TODO: Stabilize screens, options, descriptors, and `describe` without relying on React Compiler.
+  const describe = (route: DescriptorRouteProp<ParamListBase, string>) => {
+    if (route.key !== undefined) {
+      const descriptor = descriptors[route.key];
+      if (!descriptor) {
+        throw new Error(`Couldn't find a route with the key ${route.key}.`);
+      }
+      return descriptor;
+    }
+
+    const config = screens[route.name];
+    if (!config) {
+      return {
+        route,
+        navigation: getNavigation({ key: route.name, name: route.name }, false),
+        options: {} as ScreenOptions,
+        render: () => null,
+      } as DescriptorMap[string];
+    }
+
+    const navigation = getNavigation({ key: route.name, name: route.name }, false);
+    return {
+      route,
+      navigation,
+      options: getOptions(route, navigation, {}),
+      render: () => null,
+      routeSource: config.props.routeSource,
+    } as DescriptorMap[string];
+  };
+
+  return { describe, descriptors };
+}
+
+function getActivityThreshold(
+  activityEnabled: boolean | number | undefined,
+  defaultThreshold: number
+) {
+  if (typeof activityEnabled === 'number') {
+    if (Number.isNaN(activityEnabled) || activityEnabled <= 0) {
+      if (__DEV__) {
+        console.warn(
+          `activityEnabled must be a positive number. Received ${activityEnabled}; disabling React Activity.`
+        );
+      }
+      return undefined;
+    }
+    return activityEnabled;
+  }
+  if (activityEnabled) {
+    return Math.max(1, defaultThreshold);
+  }
+  return undefined;
+}

@@ -1,10 +1,7 @@
 import { getConfig } from '@expo/config';
-import * as PackageManager from '@expo/package-manager';
+import type * as PackageManager from '@expo/package-manager';
 import chalk from 'chalk';
-import resolveFrom from 'resolve-from';
 
-import { fixPackagesAsync } from './fixPackages';
-import { Options } from './resolveOptions';
 import * as Log from '../log';
 import {
   getVersionedDependenciesAsync,
@@ -14,8 +11,9 @@ import { isInteractive } from '../utils/interactive';
 import { learnMore } from '../utils/link';
 import { confirmAsync } from '../utils/prompts';
 import { joinWithCommasAnd } from '../utils/strings';
-
-const debug = require('debug')('expo:install:check') as typeof console.log;
+import { debugEvent } from './events';
+import { fixPackagesAsync } from './fixPackages';
+import type { Options } from './resolveOptions';
 
 /**
  * Handles `expo install --fix|check'.
@@ -91,7 +89,7 @@ export async function checkPackagesAsync(
     (isInteractive() && (await confirmAsync({ message: 'Fix dependencies?' }).catch(() => false)));
 
   if (value) {
-    debug('Installing fixed dependencies:', dependencies);
+    debugEvent('fixing_dependencies', { packages: dependencies.map((d) => d.packageName) });
     // Install the corrected dependencies.
     return fixPackagesAsync(projectRoot, {
       packageManager,

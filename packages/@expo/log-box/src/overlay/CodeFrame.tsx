@@ -6,10 +6,10 @@
  */
 import React, { useEffect } from 'react';
 
-import { Ansi } from './AnsiHighlight';
-import styles from './CodeFrame.module.css';
 import type { CodeFrame as CodeFrameData } from '../Data/Types';
 import { formatProjectFilePath, openFileInEditor } from '../utils/devServerEndpoints';
+import { Ansi } from './AnsiHighlight';
+import styles from './CodeFrame.module.css';
 
 export function ErrorCodeFrame({
   showPathsRelativeTo,
@@ -194,22 +194,6 @@ function CodeFrame({
         </div>
       </div>
     </div>
-  );
-}
-
-function PlayIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      fill="none"
-      viewBox="0 0 24 24"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      stroke="currentColor"
-      {...props}
-      role="img">
-      <polygon points="6 3 20 12 6 21 6 3" />
-    </svg>
   );
 }
 

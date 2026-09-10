@@ -1,9 +1,8 @@
 // Copyright 2015-present 650 Industries. All rights reserved.
 
-import React
+internal import React
 import Foundation
-
-private let WORKLET_RUNTIME_KEY = "_WORKLET_RUNTIME"
+import ExpoModulesJSI
 
 // The core module that describes the `global.expo` object.
 internal final class CoreModule: Module {
@@ -28,7 +27,7 @@ internal final class CoreModule: Module {
       FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.path ?? ""
     }
 
-    Function("installOnUIRuntime") {
+    Function("installOnUIRuntime") { (uiRuntimeHolder: JavaScriptValue) in
       guard let appContext else {
         throw Exceptions.AppContextLost()
       }
@@ -39,12 +38,7 @@ internal final class CoreModule: Module {
       }
 
       let runtime = try appContext.runtime
-      if !runtime.global().hasProperty(WORKLET_RUNTIME_KEY) {
-        throw WorkletUIRuntimeException()
-      }
-
-      let pointerHolder = runtime.global().getProperty(WORKLET_RUNTIME_KEY)
-      if !pointerHolder.isObject() {
+      guard uiRuntimeHolder.isObject() else {
         throw WorkletUIRuntimeException()
       }
 
@@ -60,7 +54,7 @@ internal final class CoreModule: Module {
 
       let block = {
         do {
-          let uiRuntime = try factory(appContext, pointerHolder, runtime)
+          let uiRuntime = try factory(appContext, uiRuntimeHolder, runtime)
           appContext._uiRuntime = uiRuntime
         } catch {
           errorHolder.error = error

@@ -2,8 +2,10 @@ package expo.modules.devlauncher.nsd
 
 import android.app.Application
 import android.content.Context
+import android.net.NetworkRequest
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
+import android.os.Build
 import android.util.Log
 import expo.modules.devlauncher.helpers.await
 import expo.modules.devlauncher.services.PackagerInfo
@@ -57,9 +59,11 @@ internal abstract class NsdDiscoveryBase(
 
   private val serviceJobs = mutableMapOf<String, Job>()
 
-  private val discoveryListener = NsdDiscoveryListener(
+  private var discoveryListener: NsdDiscoveryListener? = null
+
+  private fun createDiscoveryListener() = NsdDiscoveryListener(
     onStopped = {
-      cancelAllServiceJobs()
+      cancelServiceJobs()
     },
     onServiceFound = {
       onServiceFound(it)
@@ -68,7 +72,9 @@ internal abstract class NsdDiscoveryBase(
       onServiceLost(it)
     },
     onStartFailed = {
-      isDiscovering = false
+      synchronized(this) {
+        isDiscovering = false
+      }
     }
   )
 
@@ -77,11 +83,33 @@ internal abstract class NsdDiscoveryBase(
       return
     }
 
-    manager.discoverServices(
-      SERVICE_TYPE,
-      NsdManager.PROTOCOL_DNS_SD,
-      discoveryListener
-    )
+    val listener = createDiscoveryListener().also {
+      discoveryListener = it
+    }
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      // Matches every network (clearing the default capabilities also drops NET_CAPABILITY_NOT_VPN,
+      // so VPN/proxy networks are included).
+      val discoveryNetworkRequest = NetworkRequest
+        .Builder()
+        .clearCapabilities()
+        .build()
+
+      manager.discoverServices(
+        SERVICE_TYPE,
+        NsdManager.PROTOCOL_DNS_SD,
+        discoveryNetworkRequest,
+        Runnable::run,
+        listener
+      )
+    } else {
+      manager.discoverServices(
+        SERVICE_TYPE,
+        NsdManager.PROTOCOL_DNS_SD,
+        listener
+      )
+    }
+
     isDiscovering = true
   }
 
@@ -93,17 +121,44 @@ internal abstract class NsdDiscoveryBase(
     healthCheckActive.value = false
   }
 
+  override fun restart() = synchronized(this) {
+    val wasHealthCheckActive = healthCheckActive.value
+
+    // Stop the old discovery cycle without clearing the packager list.
+    // This keeps stale entries visible in the UI while new discovery runs,
+    // avoiding a layout jump where servers briefly disappear.
+    stopDiscoveryOnly()
+
+    start()
+    if (wasHealthCheckActive) {
+      resumeHealthCheck()
+    }
+  }
+
   override fun stop() = synchronized(this) {
+    stopDiscoveryOnly()
+    cancelAndClearServiceJobs()
+  }
+
+  /**
+   * Stops the NSD discovery listener and cancels service jobs, but keeps
+   * [alivePackagers] intact so the UI doesn't flash an empty state.
+   */
+  private fun stopDiscoveryOnly() {
     if (!isDiscovering) {
       return
     }
 
-    runCatching {
-      manager.stopServiceDiscovery(discoveryListener)
-    }.onFailure {
-      Log.e("DevLauncher", "Failed to stop NSD discovery", it)
+    val listener = discoveryListener
+    discoveryListener = null
+    if (listener != null) {
+      runCatching {
+        manager.stopServiceDiscovery(listener)
+      }.onFailure {
+        Log.e("DevLauncher", "Failed to stop NSD discovery", it)
+      }
     }
-    cancelAllServiceJobs()
+    cancelServiceJobs()
     healthCheckActive.value = false
     isDiscovering = false
   }
@@ -115,7 +170,7 @@ internal abstract class NsdDiscoveryBase(
 
     val job = coroutineScope.launch {
       launchServiceLoop(serviceName, serviceInfo)
-      // Loop ended (cancelled or error) — clean up
+      // Loop ended (canceled or error) - clean up
       removeDiscoveredPackager(serviceName)
     }
 
@@ -140,13 +195,15 @@ internal abstract class NsdDiscoveryBase(
     url: String,
     name: String,
     slug: String?,
-    androidPackage: String?
+    androidPackage: String?,
+    username: String?
   ) {
     alivePackagers[serviceName] = PackagerInfo(
       url = url,
       description = name,
       slug = slug,
-      androidPackage = androidPackage
+      androidPackage = androidPackage,
+      username = username
     )
     publishDiscoveredPackagers()
   }
@@ -167,11 +224,21 @@ internal abstract class NsdDiscoveryBase(
     }
   }
 
-  private fun cancelAllServiceJobs() {
+  /**
+   * Cancels all running service coroutines without clearing [alivePackagers].
+   */
+  private fun cancelServiceJobs() {
     synchronized(serviceJobs) {
       serviceJobs.values.forEach { it.cancel() }
       serviceJobs.clear()
     }
+  }
+
+  /**
+   * Cancels all running service coroutines and clears the packager list.
+   */
+  private fun cancelAndClearServiceJobs() {
+    cancelServiceJobs()
     alivePackagers.clear()
     publishDiscoveredPackagers()
   }

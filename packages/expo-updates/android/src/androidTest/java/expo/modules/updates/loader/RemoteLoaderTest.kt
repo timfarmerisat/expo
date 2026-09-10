@@ -18,6 +18,9 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.json.JSONException
 import org.json.JSONObject
@@ -60,7 +63,8 @@ class RemoteLoaderTest {
       mockFileDownloader,
       File("testDirectory"),
       null,
-      mockLoaderFiles
+      mockLoaderFiles,
+      CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher())
     )
 
     val manifestString = CertificateFixtures.testExpoUpdatesManifestBody
@@ -191,6 +195,11 @@ class RemoteLoaderTest {
     update.status = UpdateStatus.READY
     db.updateDao().insertUpdate(update)
 
+    val launchAsset = AssetEntity("bundle-1234", "js")
+    launchAsset.relativePath = "bundle-1234"
+    launchAsset.isLaunchAsset = true
+    db.assetDao().insertAssets(listOf(launchAsset), update)
+
     val result = loader.load { _ ->
       Loader.OnUpdateResponseLoadedResult(shouldDownloadManifestIfPresentInResponse = true)
     }
@@ -246,6 +255,11 @@ class RemoteLoaderTest {
     )
     update.status = UpdateStatus.READY
     db.updateDao().insertUpdate(update)
+
+    val launchAsset = AssetEntity("bundle-1234", "js")
+    launchAsset.relativePath = "bundle-1234"
+    launchAsset.isLaunchAsset = true
+    db.assetDao().insertAssets(listOf(launchAsset), update)
 
     val result = loader.load { _ ->
       Loader.OnUpdateResponseLoadedResult(shouldDownloadManifestIfPresentInResponse = true)

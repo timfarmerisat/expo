@@ -3,9 +3,7 @@ import fs from 'fs';
 import { glob } from 'glob';
 import path from 'path';
 
-import { ExtractProps } from '../utils/npm';
-
-const debug = require('debug')('expo:prebuild:copyTemplateFiles') as typeof console.log;
+import { debugEvent } from './events';
 
 function escapeXMLCharacters(original: string): string {
   const noAmps = original.replace('&', '&amp;');
@@ -97,7 +95,9 @@ export async function getTemplateFilesToRenameAsync(
   let config = userConfig ?? defaultRenameConfig;
 
   // Strip comments, trim whitespace, and remove empty lines.
-  config = config.map((line) => line.split(/(?<!\\)#/, 2)[0].trim()).filter((line) => line !== '');
+  config = config
+    .map((line) => line.split(/(?<!\\)#/, 3)[0]?.trim())
+    .filter((line): line is string => !!line);
 
   return await glob(config, {
     cwd,
@@ -129,7 +129,7 @@ export async function renameTemplateAppNameAsync(
     files: string[];
   }
 ) {
-  debug(`Got files to transform: ${JSON.stringify(files)}`);
+  debugEvent('rename_files', { count: files.length });
 
   await Promise.all(
     files.map(async (file) => {
@@ -145,7 +145,7 @@ export async function renameTemplateAppNameAsync(
         );
       }
 
-      debug(`Renaming app name in file: ${absoluteFilePath}`);
+      debugEvent('rename_file', { path: debugEvent.path(absoluteFilePath) });
 
       const safeName = ['.xml', '.plist'].includes(path.extname(file))
         ? escapeXMLCharacters(name)

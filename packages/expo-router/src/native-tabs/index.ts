@@ -10,9 +10,11 @@ export type {
   NativeTabsBottomAccessoryProps,
 } from './common/elements';
 export type {
+  IconRenderingMode,
   NativeTabsProps,
   NativeTabTriggerProps,
   NativeTabsLabelStyle,
+  NativeTabsHostNativeProps,
   SymbolOrImageSource,
   NativeTabsTabBarItemLabelVisibilityMode,
   NativeTabsBlurEffect,

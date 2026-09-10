@@ -1,9 +1,10 @@
-import { ExpoConfig } from '@expo/config-types';
-import { JSONObject } from '@expo/json-file';
+import type { ExpoConfig } from '@expo/config-types';
+import type { JSONObject } from '@expo/json-file';
 import fs from 'fs';
 import path from 'path';
-import { XCBuildConfiguration } from 'xcode';
+import type { XCBuildConfiguration } from 'xcode';
 
+import { createEntitlementsPlugin } from '../plugins/ios-plugins';
 import { findFirstNativeTarget, getXCBuildConfigurationFromPbxproj } from './Target';
 import {
   getBuildConfigurationsForListId,
@@ -12,7 +13,6 @@ import {
   getProjectName,
 } from './utils/Xcodeproj';
 import { trimQuotes } from './utils/string';
-import { createEntitlementsPlugin } from '../plugins/ios-plugins';
 
 export const withAssociatedDomains = createEntitlementsPlugin(
   setAssociatedDomains,

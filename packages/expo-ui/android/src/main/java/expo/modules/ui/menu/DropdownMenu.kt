@@ -1,11 +1,13 @@
 package expo.modules.ui.menu
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.runtime.Composable
-import expo.modules.kotlin.views.ComposableScope
+import androidx.compose.ui.unit.dp
 import expo.modules.kotlin.views.FunctionalComposableScope
+import expo.modules.ui.UIComposableScope
 import expo.modules.ui.ModifierRegistry
 import expo.modules.ui.composeOrNull
 import expo.modules.ui.findChildSlotView
@@ -20,15 +22,17 @@ fun FunctionalComposableScope.DropdownMenuContent(
 
   Box(modifier = ModifierRegistry.applyModifiers(props.modifiers, appContext, composableScope, globalEventDispatcher)) {
     // Trigger - non-items children
-    Children(ComposableScope(), filter = { !isSlotView(it) })
+    Children(UIComposableScope(), filter = { !isSlotView(it) })
 
     DropdownMenu(
       containerColor = props.color?.composeOrNull ?: MenuDefaults.containerColor,
+      shape = props.cornerRadius?.let { RoundedCornerShape(it.dp) } ?: MenuDefaults.shape,
+      shadowElevation = props.shadowElevation?.dp ?: MenuDefaults.ShadowElevation,
       expanded = props.expanded,
       onDismissRequest = onDismissRequest
     ) {
       itemsSlotView?.let {
-        with(ComposableScope()) {
+        with(UIComposableScope()) {
           with(it) {
             Content()
           }

@@ -5,20 +5,15 @@ import android.content.Context
 import android.content.Intent
 import android.os.Handler
 import android.os.HandlerThread
-import android.view.View
-import androidx.annotation.UiThread
 import androidx.appcompat.app.AppCompatActivity
 import com.facebook.react.bridge.ReactApplicationContext
-import com.facebook.react.uimanager.UIManagerHelper
-import com.facebook.react.uimanager.UIManagerModule
-import com.facebook.react.uimanager.common.UIManagerType
+import com.facebook.react.modules.network.OkHttpClientProvider
 import expo.modules.adapters.react.NativeModulesProxy
 import expo.modules.core.errors.ContextDestroyedException
 import expo.modules.core.interfaces.ActivityProvider
 import expo.modules.interfaces.permissions.Permissions
 import expo.modules.kotlin.activityresult.ActivityResultsManager
 import expo.modules.kotlin.activityresult.DefaultAppContextActivityResultCaller
-import expo.modules.kotlin.defaultmodules.ErrorManagerModule
 import expo.modules.kotlin.defaultmodules.JSLoggerModule
 import expo.modules.kotlin.defaultmodules.NativeModulesProxyModule
 import expo.modules.kotlin.events.EventEmitter
@@ -36,12 +31,15 @@ import expo.modules.kotlin.services.FilePermissionService
 import expo.modules.kotlin.services.Service
 import expo.modules.kotlin.services.ServicesRegistry
 import expo.modules.kotlin.tracing.trace
+import expo.modules.kotlin.types.ConverterContext
+import expo.modules.v2.ExpoModulesV2Host
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.android.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
+import okhttp3.OkHttpClient
 import java.io.File
 import java.lang.ref.WeakReference
 
@@ -49,14 +47,17 @@ class AppContext(
   modulesProvider: ModulesProvider,
   val legacyModuleRegistry: expo.modules.core.ModuleRegistry,
   reactContextHolder: WeakReference<ReactApplicationContext>
-) : CurrentActivityProvider {
+) : CurrentActivityProvider, ConverterContext {
   // The main context used in the app.
   // Modules attached to this context will be available on the main js context.
-  @Deprecated("Use AppContext.runtimeContext instead", ReplaceWith("runtime"))
-  val hostingRuntimeContext = MainRuntime(this, reactContextHolder)
+  override val runtime = MainRuntime(this, reactContextHolder)
 
-  val runtime: MainRuntime
-    get() = hostingRuntimeContext
+  override val applicationContext: Context
+    get() {
+      return requireNotNull(reactContext) {
+        "The app context should be created with valid react context."
+      }.applicationContext
+    }
 
   private val uiRuntimeHolder = lazy { WorkletRuntime(this, reactContextHolder) }
   val uiRuntime
@@ -143,7 +144,8 @@ class AppContext(
       val inlineModulesList = Class.forName("inline.modules.ExpoInlineModulesList").getConstructor()
         .newInstance() as ModulesProvider
       registry.register(inlineModulesList)
-    } catch (_: ClassNotFoundException) {}
+    } catch (_: ClassNotFoundException) {
+    }
   }
 
   /**
@@ -152,6 +154,7 @@ class AppContext(
    */
   fun installJSIInterop() {
     runtime.install()
+    runtime.reactContext?.let(ExpoModulesV2Host::install)
   }
 
   /**
@@ -231,6 +234,17 @@ class AppContext(
     get() = runtime.reactContext?.hasActiveReactInstance() == true
 
   /**
+   * @returns an OkHttpClient instance that can be used to perform network requests
+   * with the same configuration as React Native's networking module. See [com.facebook.react.modules.network.OkHttpClientProvider].
+   * This client will share the same cookie jar and has no timeouts by default.
+   */
+  val okHttpClient: OkHttpClient
+    get() = OkHttpClientProvider.getOkHttpClient()
+
+  fun createOkHttpClientBuilder(): OkHttpClient.Builder =
+    OkHttpClientProvider.createClientBuilder()
+
+  /**
    * Provides access to the event emitter
    */
   fun eventEmitter(module: Module): EventEmitter? {
@@ -253,11 +267,6 @@ class AppContext(
       return KEventEmitterWrapper(legacyEventEmitter, runtime.reactContextHolder)
     }
 
-  @Deprecated("Use AppContext.jsLogger instead")
-  val errorManager: ErrorManagerModule? by lazy {
-    registry.getModule()
-  }
-
   val jsLogger by lazy {
     registry.getModule<JSLoggerModule>()?.logger
   }
@@ -276,6 +285,8 @@ class AppContext(
     modulesQueue.cancel(ContextDestroyedException())
     mainQueue.cancel(ContextDestroyedException())
     backgroundCoroutineScope.cancel(ContextDestroyedException())
+
+    ExpoModulesV2Host.uninstall()
 
     runtime.deallocate()
     if (uiRuntimeHolder.isInitialized()) {
@@ -348,31 +359,6 @@ class AppContext(
       EventName.ON_NEW_INTENT,
       intent
     )
-  }
-
-  @Suppress("UNCHECKED_CAST")
-  @UiThread
-  fun <T : View> findView(viewTag: Int): T? {
-    val reactContext = runtime.reactContext ?: return null
-    return UIManagerHelper
-      .getUIManagerForReactTag(reactContext, viewTag)
-      ?.resolveView(viewTag) as? T
-  }
-
-  internal fun dispatchOnMainUsingUIManager(block: () -> Unit) {
-    val reactContext = runtime.reactContext ?: throw Exceptions.ReactContextLost()
-    val uiManager = UIManagerHelper.getUIManagerForReactTag(
-      reactContext,
-      UIManagerType.DEFAULT
-    ) as UIManagerModule
-
-    uiManager.addUIBlock {
-      block()
-    }
-  }
-
-  internal fun assertMainThread() {
-    Utils.assertMainThread()
   }
 
   /**

@@ -8,10 +8,66 @@
 
 ### 🐛 Bug fixes
 
-- Fix glass effect not rendering correctly after appearance change while view is off-screen. ([#43771](https://github.com/expo/expo/pull/43771) by [@nishan](https://github.com/intergalacticspacehighway))
-- Fix `isInteractive` prop not being dynamically changeable after mount. ([#43771](https://github.com/expo/expo/pull/43771) by [@nishan](https://github.com/intergalacticspacehighway))
+### 💡 Others
+
+## 58.0.0 — 2026-09-10
+
+### 🐛 Bug fixes
+
+- [iOS] Report `isLiquidGlassAvailable` as `true` in apps built with the iOS 27 SDK, which ignores `UIDesignRequiresCompatibility`. ([#49850](https://github.com/expo/expo/pull/49850) by [@tsapeta](https://github.com/tsapeta))
 
 ### 💡 Others
+
+- Changed the type of the `GlassView` `tintColor` prop from `string` to `ColorValue`, which the native implementation already accepted, so `PlatformColor` and `DynamicColorIOS` values now type-check. ([#49893](https://github.com/expo/expo/pull/49893) by [@johankasperi](https://github.com/johankasperi))
+
+## 57.0.1 - 2026-07-15
+
+_This version does not introduce any user-facing changes._
+
+## 57.0.0 - 2026-06-25
+
+_This version does not introduce any user-facing changes._
+
+## 56.0.4 — 2026-05-06
+
+_This version does not introduce any user-facing changes._
+
+## 56.0.3 — 2026-05-06
+
+_This version does not introduce any user-facing changes._
+
+## 56.0.2 — 2026-05-06
+
+_This version does not introduce any user-facing changes._
+
+## 56.0.1 — 2026-05-05
+
+_This version does not introduce any user-facing changes._
+
+## 56.0.0 — 2026-05-05
+
+### 🛠 Breaking changes
+
+- Bumped minimum iOS/tvOS version to 16.4, macOS to 13.4. ([#43296](https://github.com/expo/expo/pull/43296) by [@tsapeta](https://github.com/tsapeta))
+
+## 55.0.11 - 2026-05-05
+
+_This version does not introduce any user-facing changes._
+
+## 55.0.10 - 2026-04-02
+
+_This version does not introduce any user-facing changes._
+
+## 55.0.9 - 2026-04-02
+
+_This version does not introduce any user-facing changes._
+
+## 55.0.8 - 2026-03-11
+
+### 🐛 Bug fixes
+
+- Fix glass effect not rendering correctly after appearance change while view is off-screen. ([#43771](https://github.com/expo/expo/pull/43771) by [@nishan](https://github.com/intergalacticspacehighway)) ([#43771](https://github.com/expo/expo/pull/43771) by [@intergalacticspacehighway](https://github.com/intergalacticspacehighway))
+- Fix `isInteractive` prop not being dynamically changeable after mount. ([#43771](https://github.com/expo/expo/pull/43771) by [@nishan](https://github.com/intergalacticspacehighway)) ([#43771](https://github.com/expo/expo/pull/43771) by [@intergalacticspacehighway](https://github.com/intergalacticspacehighway))
 
 ## 55.0.7 — 2026-02-25
 

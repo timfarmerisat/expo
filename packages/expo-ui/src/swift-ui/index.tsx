@@ -1,4 +1,5 @@
 export * from './AccessoryWidgetBackground';
+export * from './Alert';
 export * from './BottomSheet';
 export * from './Button';
 export * from './Chart';
@@ -17,11 +18,14 @@ export * from './Image';
 export * from './Label';
 export * from './LabeledContent';
 export * from './HStack';
+export * from './LazyHStack';
+export * from './LazyVStack';
 export * from './VStack';
 export * from './ZStack';
 export * from './Group';
 export * from './List';
 export * from './Menu';
+export * from './NavigationStack';
 export * from './Picker';
 export * from './ProgressView';
 export * from './Section';
@@ -29,15 +33,30 @@ export * from './ShareLink';
 export * from './Slider';
 export * from './Spacer';
 export * from './Stepper';
+export * from './SwipeActions';
 export * from './Text';
+export { useNativeState } from '../State';
+export { withAnimation, type WithAnimationCompletionCriteria } from './withAnimation';
+export * from './SyncToggle';
+export * from './TabView';
+export * from './Toolbar';
 export * from './Toggle';
-export * from './TextField';
+export {
+  TextField,
+  type TextFieldProps,
+  type TextFieldRef,
+  type TextFieldSelection,
+} from './TextField';
 export * from './SecureField';
 export * from './Namespace';
 export * from './GlassEffectContainer';
 export * from './ScrollView';
 export * from './Shapes';
+export * from './Mask';
+export * from './Overlay';
+export * from './Background';
 export * from './Popover';
 export * from './Grid';
 export * from './RNHostView';
-export { type CommonViewModifierProps } from './types';
+export * from './Link';
+export { type Alignment, type CommonViewModifierProps } from './types';

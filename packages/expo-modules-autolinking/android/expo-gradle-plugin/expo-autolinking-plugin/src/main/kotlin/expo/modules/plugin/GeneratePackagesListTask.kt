@@ -2,11 +2,11 @@ package expo.modules.plugin
 
 import expo.modules.plugin.configuration.ExpoModule
 import org.gradle.api.DefaultTask
-import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
-import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
 
 /**
@@ -38,17 +38,45 @@ abstract class GeneratePackagesListTask : DefaultTask() {
   lateinit var modules: List<ExpoModule>
 
   /**
-   * The output file where the package list should be written.
+   * The output directory where the package list should be written.
    */
-  @get:OutputFile
-  abstract val outputFile: RegularFileProperty
+  @get:OutputDirectory
+  abstract val outputDirectory: DirectoryProperty
 
   @TaskAction
   fun generatePackagesList() {
-    val target = outputFile.get().asFile
-    val content = generatePackageListFileContent()
+    val packageDirectory = outputDirectory.get().asFile
+      .resolve(namespace.get().replace('.', '/'))
+    packageDirectory.mkdirs()
 
-    target.writeText(content)
+    packageDirectory
+      .resolve(generatedPackageListFilename)
+      .writeText(generatePackageListFileContent())
+
+    packageDirectory
+      .resolve(generatedV2ModuleListFilename)
+      .writeText(generateV2ModuleListFileContent())
+  }
+
+  private fun generateV2ModuleListFileContent(): String {
+    val classifiers = modules
+      .flatMap { module -> module.projects.flatMap { it.modulesV2 } }
+      .joinToString(",\n") { "      ${it}::class.java" }
+
+    return """package ${namespace.get()}
+
+import expo.modules.v2.ExpoModulesV2Provider
+import io.github.expo.modules.v2.modules.Module
+
+class ExpoModulesV2ModuleList : ExpoModulesV2Provider {
+  override fun getModules(): List<Class<out Module>> {
+    return listOf<Class<out Module>>(
+$classifiers
+    )
+  }
+}
+
+""".trimIndent()
   }
 
   private fun generatePackageListFileContent(): String {

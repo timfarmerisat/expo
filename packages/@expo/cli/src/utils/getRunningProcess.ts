@@ -1,7 +1,7 @@
 import spawnAsync from '@expo/spawn-async';
 import * as path from 'path';
 
-const debug = require('debug')('expo:utils:getRunningProcess') as typeof console.log;
+import { event } from './events';
 
 /** Timeout applied to shell commands */
 const timeout = 350;
@@ -12,11 +12,14 @@ export async function getPID(port: number): Promise<number | null> {
     const { stdout } = await spawnAsync('lsof', [`-i:${port}`, '-P', '-t', '-sTCP:LISTEN'], {
       timeout,
     });
-    const pid = Number(stdout.split('\n', 1)[0].trim());
-    debug(`pid: ${pid} for port: ${port}`);
-    return Number.isSafeInteger(pid) ? pid : null;
+    const pid = Number(stdout.split('\n', 1)[0]!.trim());
+    if (Number.isSafeInteger(pid)) {
+      event('port_pid', { port, pid });
+      return pid;
+    }
+    return null;
   } catch (error: any) {
-    debug(`No pid found for port: ${port}. Error: ${error}`);
+    event('port_pid_failed', { port, error: event.error(error as Error) });
     return null;
   }
 }

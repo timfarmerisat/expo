@@ -1,12 +1,13 @@
-import { ExpoConfig } from '@expo/config-types';
+import type { ExpoConfig } from '@expo/config-types';
 import fs from 'fs';
 import path from 'path';
-import { XcodeProject } from 'xcode';
+import type { XcodeProject } from 'xcode';
 
-import { ConfigPlugin } from '../Plugin.types';
-import { addResourceFileToGroup, ensureGroupRecursively, getProjectName } from './utils/Xcodeproj';
+import type { ConfigPlugin } from '../Plugin.types';
 import { withXcodeProject } from '../plugins/ios-plugins';
-import { getResolvedLocalesAsync, LocaleJson, ResolvedLocalesJson } from '../utils/locales';
+import type { LocaleJson, ResolvedLocalesJson } from '../utils/locales';
+import { getResolvedLocalesAsync } from '../utils/locales';
+import { addResourceFileToGroup, ensureGroupRecursively, getProjectName } from './utils/Xcodeproj';
 
 export const withLocales: ConfigPlugin = (config) => {
   return withXcodeProject(config, async (config) => {
@@ -17,6 +18,10 @@ export const withLocales: ConfigPlugin = (config) => {
     return config;
   });
 };
+
+function escapeStringsLiteral(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+}
 
 export async function writeStringsFile({
   localesMap,
@@ -32,14 +37,16 @@ export async function writeStringsFile({
   project: XcodeProject;
 }) {
   for (const [lang, localizationObj] of Object.entries(localesMap)) {
-    if (Object.entries(localizationObj).length === 0) return project;
+    if (Object.entries(localizationObj).length === 0) continue;
     const dir = path.join(supportingDirectory, `${lang}.lproj`);
     await fs.promises.mkdir(dir, { recursive: true });
 
     const strings = path.join(dir, fileName);
     const buffer = [];
     for (const [plistKey, localVersion] of Object.entries(localizationObj)) {
-      buffer.push(`${plistKey} = "${localVersion}";`);
+      buffer.push(
+        `"${escapeStringsLiteral(plistKey)}" = "${escapeStringsLiteral(String(localVersion))}";`
+      );
     }
     // Write the file to the file system.
     await fs.promises.writeFile(strings, buffer.join('\n'));

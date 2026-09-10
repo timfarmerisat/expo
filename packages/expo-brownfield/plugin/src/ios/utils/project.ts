@@ -2,7 +2,6 @@ import type { XcodeProject } from 'expo/config-plugins';
 import { readdirSync } from 'node:fs';
 
 import type { Group, PbxGroup, PbxNativeTarget, PbxNativeTargetSection, Target } from '../types';
-import { readFromTemplate } from '../utils';
 import { Constants } from './constants';
 
 export const createFramework = (
@@ -14,6 +13,7 @@ export const createFramework = (
     targetName,
     Constants.Target.Framework,
     targetName,
+    // @ts-expect-error: TODO(@kitten): This was untyped before, now this errors as an excessive argument
     bundleIdentifier
   ) as unknown as Target;
 };
@@ -115,11 +115,12 @@ export const configureBuildSettings = (
   const destTargetKey = Object.keys(nativeTargetSection).find(
     (key) =>
       !key.endsWith('_comment') &&
-      nativeTargetSection[key].productType !== Constants.Target.ApplicationProductType
+      nativeTargetSection[key]!.productType !== Constants.Target.ApplicationProductType
   );
-  const destTarget = nativeTargetSection[destTargetKey];
-
-  destTarget.buildConfigurationList = configurationList.uuid;
+  // TODO(@kitten): This was untyped before, so didn't catch `destTargetKey === undefined`, fix the non-null here
+  const destTarget = nativeTargetSection[destTargetKey!]!;
+  // TODO(@kitten): The uuid is typed as unknown in the typings
+  destTarget.buildConfigurationList = configurationList.uuid as string;
 };
 
 const getCommonBuildSettings = (
@@ -165,10 +166,12 @@ const getCommonBuildSettings = (
     SWIFT_OPTIMIZATION_LEVEL: `"-Onone"`,
     CODE_SIGN_ENTITLEMENTS: `"${targetName}/${targetName}.entitlements"`,
     // DEVELOPMENT_TEAM: `""`,
+    DEFINES_MODULE: '"YES"',
     BUILD_LIBRARY_FOR_DISTRIBUTION: '"YES"',
     USER_SCRIPT_SANDBOXING: '"NO"',
     SKIP_INSTALL: '"NO"',
     ENABLE_MODULE_VERIFIER: '"NO"',
+    GCC_SYMBOLS_PRIVATE_EXTERN: '"YES"',
   };
 };
 
@@ -200,7 +203,7 @@ const findNativeTargetSection = (
 
   if (!key) {
     throw new Error(
-      'Native target key mathching predicate cannot be found in native target section of PBXProj'
+      'Native target key matching predicate cannot be found in native target section of PBXProj'
     );
   }
 

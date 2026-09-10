@@ -144,11 +144,11 @@ export const buildTestCommon = async ({
 /**
  * Expects the prebuild to be successful at the given project root and platform
  */
-export const expectPrebuild = async (projectRoot: string, platform: 'android' | 'ios') => {
+export const expectPrebuild = (projectRoot: string, platform: 'android' | 'ios') => {
   const prebuildDir = path.join(projectRoot, platform);
   expect(fs.existsSync(prebuildDir)).toBe(true);
 
-  const prebuildFiles = fs.readdirSync(prebuildDir, { recursive: true });
+  const prebuildFiles = listFiles(prebuildDir);
   expect(prebuildFiles.length).toBeGreaterThan(0);
 };
 
@@ -162,16 +162,15 @@ interface ExpectFileOptions {
   content?: string[] | string;
 }
 
-export const expectFile = async ({
-  projectRoot,
-  fileName,
-  filePath,
-  content,
-}: ExpectFileOptions) => {
-  let fullFilePath;
+// NOTE: deliberately synchronous — callers don't await this helper, so if it were
+// async, failed expect()s would surface as unhandled rejections that Jest ignores
+// instead of failing the test.
+export const expectFile = ({ projectRoot, fileName, filePath, content }: ExpectFileOptions) => {
+  let fullFilePath: string;
 
   if (fileName) {
-    const files = fs.readdirSync(projectRoot, { recursive: true });
+    const files = listFiles(projectRoot);
+
     const file = files.find(
       (entry) =>
         entry.endsWith(fileName) &&
@@ -180,7 +179,7 @@ export const expectFile = async ({
     );
     expect(file).toBeDefined();
 
-    fullFilePath = path.join(projectRoot, file);
+    fullFilePath = path.join(projectRoot, file!);
     expect(fs.existsSync(fullFilePath)).toBe(true);
   }
 
@@ -189,7 +188,7 @@ export const expectFile = async ({
     expect(fs.existsSync(fullFilePath)).toBe(true);
   }
 
-  const fileContent = fs.readFileSync(fullFilePath, 'utf-8');
+  const fileContent = fs.readFileSync(fullFilePath!, 'utf-8');
   if (Array.isArray(content)) {
     content?.forEach((pattern) => {
       expect(fileContent).toContain(pattern);
@@ -218,7 +217,7 @@ type ExpectFilesOptions =
       expected: ExpectedFileName[];
     };
 
-export const expectFiles = async (options: ExpectFilesOptions) => {
+export const expectFiles = (options: ExpectFilesOptions) => {
   if ('content' in options) {
     options.fileNames.forEach((fileName) => {
       expectFile({ projectRoot: options.projectRoot, fileName, content: options.content });
@@ -233,3 +232,23 @@ export const expectFiles = async (options: ExpectFilesOptions) => {
     });
   }
 };
+
+export function listFiles(target: string) {
+  const baseDir = path.resolve(target);
+  const results: string[] = [];
+  function list(dir: string = '') {
+    const target = path.resolve(baseDir, dir);
+    const entries = fs.readdirSync(target, { withFileTypes: true });
+    entries.sort((a, b) => a.name.localeCompare(b.name));
+    for (const entry of entries) {
+      const name = dir ? path.join(dir, entry.name) : entry.name;
+      if (entry.isFile()) {
+        results.push(name);
+      } else if (entry.isDirectory() && entry.name !== 'node_modules') {
+        list(name);
+      }
+    }
+  }
+  list();
+  return results.sort();
+}

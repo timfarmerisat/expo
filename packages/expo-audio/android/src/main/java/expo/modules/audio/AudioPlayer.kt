@@ -7,6 +7,8 @@ import android.media.audiofx.Visualizer
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -15,7 +17,6 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.session.MediaSession
 import expo.modules.audio.service.AudioPlaybackServiceConnection
-import expo.modules.audio.service.ServiceBindingState
 import expo.modules.kotlin.AppContext
 import expo.modules.kotlin.exception.Exceptions
 import java.lang.ref.WeakReference
@@ -35,6 +36,7 @@ class AudioPlayer(
   player = ExoPlayer.Builder(context)
     .setLooper(context.mainLooper)
     .setAudioAttributes(AudioAttributes.DEFAULT, false)
+    .setHandleAudioBecomingNoisy(true)
     .setSeekForwardIncrementMs(SEEK_JUMP_INTERVAL_MS)
     .setSeekBackIncrementMs(SEEK_JUMP_INTERVAL_MS)
     .apply {
@@ -55,15 +57,26 @@ class AudioPlayer(
   appContext = appContext,
   updateInterval = updateInterval,
   statusEventName = PLAYBACK_STATUS_UPDATE
-) {
+),
+  LockScreenPlayable {
   var preservesPitch = true
+  var keepAudioSessionActive = false
 
   // Lock screen controls
-  var isActiveForLockScreen = false
-  internal var metadata: Metadata? = null
-  internal var lockScreenOptions: AudioLockScreenOptions? = null
-  internal var mediaSession: MediaSession = buildBasicMediaSession(context, ref)
-  val serviceConnection = AudioPlaybackServiceConnection(WeakReference(this), appContext)
+  override var isActiveForLockScreen = false
+  override var metadata: Metadata? = null
+  override var lockScreenOptions: AudioLockScreenOptions? = null
+  override var mediaSession: MediaSession = buildBasicMediaSession(context, ref)
+  override val serviceConnection = AudioPlaybackServiceConnection(WeakReference(this), appContext)
+
+  override val isLive: Boolean
+    get() = ref.isCurrentMediaItemLive
+
+  val currentOffsetFromLive: Double?
+    get() {
+      val offset = ref.currentLiveOffset
+      return if (offset == C.TIME_UNSET) null else offset / 1000.0
+    }
 
   private var samplingEnabled = false
   private var visualizer: Visualizer? = null
@@ -86,51 +99,10 @@ class AudioPlayer(
     startUpdating()
   }
 
-  fun setActiveForLockScreen(active: Boolean, metadata: Metadata? = null, options: AudioLockScreenOptions? = null) {
-    if (active) {
-      this.metadata = metadata
-      this.lockScreenOptions = options
-      this.isActiveForLockScreen = true
-
-      if (serviceConnection.bindingState == ServiceBindingState.UNBOUND) {
-        serviceConnection.bindWithService()
-      }
-
-      val serviceBinder = serviceConnection.playbackServiceBinder
-      if (serviceBinder != null && serviceConnection.bindingState == ServiceBindingState.BOUND) {
-        serviceBinder.service.setPlayerOptions(this, metadata, options)
-      } else if (serviceConnection.bindingState == ServiceBindingState.BINDING) {
-        // The settings will be applied when the service connects
-      } else {
-        appContext?.jsLogger?.error(
-          getPlaybackServiceErrorMessage("Failed to activate lock screen controls - service binding failed")
-        )
-      }
-    } else if (isActiveForLockScreen) {
-      this.isActiveForLockScreen = false
-      serviceConnection.playbackServiceBinder?.service?.unregisterPlayer()
-    }
-  }
-
-  fun updateLockScreenMetadata(metadata: Metadata) {
-    if (isActiveForLockScreen) {
-      this.metadata = metadata
-
-      val serviceBinder = serviceConnection.playbackServiceBinder
-      if (serviceBinder != null && serviceConnection.bindingState == ServiceBindingState.BOUND) {
-        serviceBinder.service.setPlayerMetadata(this, metadata)
-      } else {
-        appContext?.jsLogger?.warn(
-          getPlaybackServiceErrorMessage("Cannot update lock screen metadata - service not connected")
-        )
-      }
-    }
-  }
-
-  fun clearLockScreenControls() {
-    if (isActiveForLockScreen) {
-      serviceConnection.playbackServiceBinder?.service?.unregisterPlayer()
-    }
+  fun clearMediaSource() {
+    previousPlaybackState = Player.STATE_IDLE
+    ref.pause()
+    ref.clearMediaItems()
   }
 
   override fun onPlaybackStateUpdated(playbackState: Int, justFinished: Boolean) {
@@ -142,6 +114,14 @@ class AudioPlayer(
       updateMap["playing"] = false
     }
     sendStatusUpdate(updateMap)
+  }
+
+  override fun onPlayerError(error: PlaybackException) {
+    sendStatusUpdate(
+      mapOf(
+        "error" to error.message
+      )
+    )
   }
 
   fun setSamplingEnabled(enabled: Boolean) {
@@ -193,11 +173,14 @@ class AudioPlayer(
       "isLoaded" to if (ref.playbackState == Player.STATE_ENDED) true else isLoaded,
       "playbackRate" to ref.playbackParameters.speed,
       "shouldCorrectPitch" to preservesPitch,
-      "isBuffering" to isBuffering
+      "isBuffering" to isBuffering,
+      "isLive" to isLive,
+      "currentOffsetFromLive" to currentOffsetFromLive,
+      "error" to null
     )
   }
 
-  internal fun assignBasicMediaSession() {
+  override fun assignBasicMediaSession() {
     mediaSession.release()
     mediaSession = buildBasicMediaSession(context, ref)
   }
@@ -257,7 +240,7 @@ class AudioPlayer(
   override fun releasePlayer() {
     mediaSession.release()
     if (isActiveForLockScreen) {
-      serviceConnection.playbackServiceBinder?.service?.unregisterPlayer()
+      serviceConnection.playbackServiceBinder?.service?.unregisterPlayable()
     }
     serviceConnection.unbind()
     visualizer?.release()

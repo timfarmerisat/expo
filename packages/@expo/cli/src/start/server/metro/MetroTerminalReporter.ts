@@ -1,10 +1,22 @@
+import { events } from '2g';
+import type { SpanEnd } from '2g';
+import type { ExpoCustomTransformOptions } from '@expo/metro-config';
 import type { Terminal } from '@expo/metro/metro-core';
 import chalk from 'chalk';
 import path from 'path';
-import { stripVTControlCharacters } from 'util';
+import { format as utilFormat, stripVTControlCharacters } from 'util';
 
-import { logWarning, TerminalReporter } from './TerminalReporter';
+import { stripAnsi } from '../../../utils/ansi';
+import { env } from '../../../utils/env';
+import { isInteractive, shouldReduceLogs } from '../../../utils/interactive';
+import { learnMore } from '../../../utils/link';
 import {
+  logLikeMetro,
+  maybeSymbolicateAndFormatJSErrorStackLogAsync,
+  parseErrorStringToObject,
+} from '../serverLogLikeMetro';
+import { logWarning, TerminalReporter } from './TerminalReporter';
+import type {
   BuildPhase,
   BundleDetails,
   BundleProgress,
@@ -12,16 +24,7 @@ import {
   TerminalReportableEvent,
 } from './TerminalReporter.types';
 import { NODE_STDLIB_MODULES } from './externals';
-import { env } from '../../../utils/env';
-import { learnMore } from '../../../utils/link';
-import {
-  logLikeMetro,
-  maybeSymbolicateAndFormatJSErrorStackLogAsync,
-  parseErrorStringToObject,
-} from '../serverLogLikeMetro';
 import { attachImportStackToRootMessage, nearestImportStack } from './metroErrorInterface';
-import { events, shouldReduceLogs } from '../../../events';
-import { stripAnsi } from '../../../utils/ansi';
 
 type ClientLogLevel =
   | 'trace'
@@ -34,53 +37,59 @@ type ClientLogLevel =
   | 'groupEnd'
   | 'debug';
 
-const debug = require('debug')('expo:metro:logger') as typeof console.log;
+declare module '2g' {
+  interface EventRegistry {
+    'metro:bundling:start': {
+      id: string | null;
+      platform: string | null;
+      environment: string | null;
+      entry: string;
+      bundleType: string;
+      dev: boolean;
+      minify: boolean;
+    };
+    'metro:bundling:done': {
+      id: string | null;
+      platform?: null | string;
+      environment?: null | string;
+      entry?: string;
+      total: number;
+    };
+    'metro:bundling:failed': {
+      id: string | null;
+      filename: string | null;
+      message: string | null;
+      importStack: string | null;
+      targetModuleName: string | null;
+      originModulePath: string | null;
+    };
+    'metro:bundling:progress': {
+      id: string | null;
+      progress: number;
+      current: number;
+      total: number;
+    };
+    'metro:server_log': {
+      level: 'info' | 'warn' | 'error' | null;
+      data: string | unknown[] | null;
+    };
+    'metro:client_log': {
+      level: ClientLogLevel | null;
+      data: unknown[] | null;
+    };
+    'metro:hmr_client_error': {
+      message: string;
+    };
+    'metro:cache_write_error': {
+      message: string;
+    };
+    'metro:cache_read_error': {
+      message: string;
+    };
+  }
+}
 
-// prettier-ignore
-export const event = events('metro', (t) => [
-  t.event<'bundling:started', {
-    id: string;
-    platform: null | string;
-    environment: null | string;
-    entry: string;
-  }>(),
-  t.event<'bundling:done', {
-    id: string | null;
-    ms: number | null;
-    total: number;
-  }>(),
-  t.event<'bundling:failed', {
-    id: string | null;
-    filename: string | null;
-    message: string | null;
-    importStack: string | null;
-    targetModuleName: string | null;
-    originModulePath: string | null;
-  }>(),
-  t.event<'bundling:progress', {
-    id: string | null;
-    progress: number;
-    current: number;
-    total: number;
-  }>(),
-  t.event<'server_log', {
-    level: 'info' | 'warn' | 'error' | null;
-    data: string | unknown[] | null;
-  }>(),
-  t.event<'client_log', {
-    level: ClientLogLevel | null;
-    data: unknown[] | null;
-  }>(),
-  t.event<'hmr_client_error', {
-    message: string;
-  }>(),
-  t.event<'cache_write_error', {
-    message: string;
-  }>(),
-  t.event<'cache_read_error', {
-    message: string;
-  }>(),
-]);
+export const event = events('metro');
 
 const MAX_PROGRESS_BAR_CHAR_WIDTH = 16;
 const DARK_BLOCK_CHAR = '\u2593';
@@ -91,12 +100,32 @@ const LIGHT_BLOCK_CHAR = '\u2591';
  */
 export class MetroTerminalReporter extends TerminalReporter {
   #lastFailedBuildID: string | undefined;
+  #bundleSpans = new Map<
+    string,
+    {
+      end: SpanEnd<'metro'>;
+      start: { id: string; platform: null | string; environment: null | string; entry: string };
+    }
+  >();
 
   constructor(
     public serverRoot: string,
     terminal: Terminal
   ) {
     super(terminal);
+  }
+
+  /**
+   * Suppress status messages in non-interactive mode.
+   * In TTY mode, Terminal overwrites status lines in-place (progress bars).
+   * In non-TTY mode, Terminal writes status via a 3500ms throttle, producing
+   * permanent output that interleaves with log messages like "Bundled Xms".
+   */
+  _getStatusMessage(): string {
+    if (!isInteractive()) {
+      return '';
+    }
+    return super._getStatusMessage();
   }
 
   _log(event: TerminalReportableEvent): void {
@@ -186,11 +215,17 @@ export class MetroTerminalReporter extends TerminalReporter {
       }
 
       if (phase === 'done') {
-        event('bundling:done', {
-          id: progress.bundleDetails.buildID ?? null,
-          total: progress.totalFileCount,
-          ms,
-        });
+        const buildID = progress.bundleDetails.buildID;
+        const span = buildID != null ? this.#bundleSpans.get(buildID) : undefined;
+        if (span) {
+          this.#bundleSpans.delete(buildID!);
+          span.end('bundling:done', { ...span.start, total: progress.totalFileCount });
+        } else {
+          event('bundling:done', {
+            id: buildID ?? null,
+            total: progress.totalFileCount,
+          });
+        }
       }
 
       // iOS Bundled 150ms
@@ -239,8 +274,8 @@ export class MetroTerminalReporter extends TerminalReporter {
     }
   }
 
-  shouldFilterClientLog(event: { type: 'client_log'; data: unknown[] }): boolean {
-    return isAppRegistryStartupMessage(event.data);
+  shouldFilterClientLog(event: TerminalReportableEvent): boolean {
+    return event.type === 'client_log' && isAppRegistryStartupMessage(event.data);
   }
 
   shouldFilterBundleEvent(event: TerminalReportableEvent): boolean {
@@ -278,6 +313,7 @@ export class MetroTerminalReporter extends TerminalReporter {
    */
   _logBundleBuildFailed(buildID: string): void {
     this.#lastFailedBuildID = buildID;
+    this.#bundleSpans.delete(buildID);
     super._logBundleBuildFailed(buildID);
   }
 
@@ -321,13 +357,26 @@ export class MetroTerminalReporter extends TerminalReporter {
     }
   }
 
-  #onClientLog(evt: { type: 'client_log'; level?: ClientLogLevel; data: unknown[] }) {
-    const { level = 'log', data } = evt;
+  #onClientLog(evt: {
+    type: 'client_log';
+    level?: ClientLogLevel;
+    data: unknown[];
+    mode?: string;
+  }) {
+    const { level = 'log' } = evt;
+    // Apply printf-style format substitution (e.g. %s, %d) that browsers handle
+    // natively in console methods but Node/Metro terminal logging does not.
+    const data = applyConsoleFormatting(evt.data);
+    const platformTag = getPlatformTagForClientLog(evt.mode);
     if (level === 'warn' || (level as string) === 'error') {
       let hasStack = false;
       const parsed = data.map((msg) => {
         // Quick check to see if an unsymbolicated stack is being logged.
-        if (typeof msg === 'string' && msg.includes('.bundle//&platform=')) {
+        if (
+          typeof msg === 'string' &&
+          // Native stack frames use `.bundle//&platform=...`; web stack frames use `.bundle?platform=...`.
+          (msg.includes('.bundle//&platform=') || msg.includes('.bundle?platform='))
+        ) {
           const stack = parseErrorStringToObject(msg);
           if (stack) {
             hasStack = true;
@@ -362,7 +411,6 @@ export class MetroTerminalReporter extends TerminalReporter {
           const fallbackIndices: number[] = [];
           const symbolicated = (await Promise.allSettled(symbolicating)).map((s, index) => {
             if (s.status === 'rejected') {
-              debug('Error formatting stack', parsed[index], s.reason);
               return parsed[index];
             } else if (!s.value) {
               return parsed[index];
@@ -385,7 +433,7 @@ export class MetroTerminalReporter extends TerminalReporter {
               : symbolicated;
 
           event('client_log', { level, data: symbolicated });
-          logLikeMetro(this.terminal.log.bind(this.terminal), level, null, ...filtered);
+          logLikeMetro(this.terminal.log.bind(this.terminal), level, platformTag, ...filtered);
         })();
         return;
       }
@@ -393,23 +441,39 @@ export class MetroTerminalReporter extends TerminalReporter {
 
     event('client_log', { level, data });
     // Overwrite the Metro terminal logging so we can improve the warnings, symbolicate stacks, and inject extra info.
-    logLikeMetro(this.terminal.log.bind(this.terminal), level, null, ...data);
+    logLikeMetro(this.terminal.log.bind(this.terminal), level, platformTag, ...data);
   }
 
   #captureLog(evt: TerminalReportableEvent) {
     switch (evt.type) {
       case 'bundle_build_started': {
+        const customTransformOptions = evt.bundleDetails?.customTransformOptions as
+          | ExpoCustomTransformOptions
+          | undefined;
         const entry =
-          typeof evt.bundleDetails?.customTransformOptions?.dom === 'string' &&
-          evt.bundleDetails.customTransformOptions.dom.includes(path.sep)
-            ? evt.bundleDetails.customTransformOptions.dom.replace(/^(\.?\.[\\/])+/, '')
+          typeof customTransformOptions?.dom === 'string' &&
+          customTransformOptions.dom.includes(path.sep)
+            ? customTransformOptions.dom.replace(/^(\.?\.[\\/])+/, '')
             : this.#normalizePath(evt.bundleDetails.entryFile);
-        return event('bundling:started', {
-          id: evt.buildID,
-          platform: evt.bundleDetails.platform ?? null,
-          environment: evt.bundleDetails.customTransformOptions?.environment ?? null,
-          entry,
+        this.#bundleSpans.set(evt.buildID, {
+          end: event.span(),
+          start: {
+            id: evt.buildID,
+            platform: evt.bundleDetails.platform ?? null,
+            environment: customTransformOptions?.environment ?? null,
+            entry,
+          },
         });
+        event('bundling:start', {
+          id: evt.buildID ?? null,
+          platform: evt.bundleDetails.platform ?? null,
+          environment: customTransformOptions?.environment ?? null,
+          entry,
+          bundleType: evt.bundleDetails.bundleType,
+          dev: evt.bundleDetails.dev,
+          minify: evt.bundleDetails.minify,
+        });
+        return;
       }
       case 'unstable_server_log':
         return event('server_log', {
@@ -495,7 +559,7 @@ function maybeAppendCodeFrame(message: string, rawMessage: string): string {
   return message;
 }
 
-/** Extract fist code frame presented in the error message */
+/** Extract first code frame presented in the error message */
 export function extractCodeFrame(errorMessage: string): string {
   const codeFrameLine = /^(?:\s*(?:>?\s*\d+\s*\||\s*\|).*\n?)+/;
   let wasPreviousLineCodeFrame: boolean | null = null;
@@ -538,11 +602,51 @@ function isAppRegistryStartupMessage(body: any[]): boolean {
   );
 }
 
+/** Apply printf-style format substitutions (%s, %d, %i, %f, %o, %O) that browsers handle natively */
+function applyConsoleFormatting(data: unknown[]): unknown[] {
+  if (data.length <= 1 || typeof data[0] !== 'string' || !/%[sdifoO%]/.test(data[0])) {
+    return data;
+  }
+  return [utilFormat(...(data as [string, ...unknown[]]))];
+}
+
+/** @returns formatted platform name for a client log event, or null if no prefix should be shown */
+function getPlatformTagForClientLog(mode?: string): string | null {
+  switch (mode) {
+    case 'ios':
+      return 'iOS';
+    case 'android':
+      return 'Android';
+    case 'web':
+      return 'Web';
+    case 'dom':
+      return 'DOM';
+    default:
+      return null;
+  }
+}
+
 /** @returns platform specific tag for a `BundleDetails` object */
 function getPlatformTagForBuildDetails(bundleDetails?: BundleDetails | null): string {
   const platform = bundleDetails?.platform ?? null;
   if (platform) {
-    const formatted = { ios: 'iOS', android: 'Android', web: 'Web' }[platform] || platform;
+    let formatted: string;
+    switch (platform) {
+      case 'ios':
+        formatted = 'iOS';
+        break;
+      case 'android':
+        formatted = 'Android';
+        break;
+      case 'web':
+        formatted = 'Web';
+        break;
+      case 'dom':
+        formatted = 'DOM';
+        break;
+      default:
+        formatted = platform;
+    }
     return `${chalk.bold(formatted)} `;
   }
 
@@ -551,17 +655,17 @@ function getPlatformTagForBuildDetails(bundleDetails?: BundleDetails | null): st
 /** @returns platform specific tag for a `BundleDetails` object */
 function getEnvironmentForBuildDetails(bundleDetails?: BundleDetails | null): string {
   // Expo CLI will pass `customTransformOptions.environment = 'node'` when bundling for the server.
-  const env = bundleDetails?.customTransformOptions?.environment ?? null;
+  const customTransformOptions = bundleDetails?.customTransformOptions as
+    | ExpoCustomTransformOptions
+    | undefined;
+  const env = customTransformOptions?.environment ?? null;
   if (env === 'node') {
     return chalk.bold('λ') + ' ';
   } else if (env === 'react-server') {
     return chalk.bold(`RSC(${getPlatformTagForBuildDetails(bundleDetails).trim()})`) + ' ';
   }
 
-  if (
-    bundleDetails?.customTransformOptions?.dom &&
-    typeof bundleDetails?.customTransformOptions?.dom === 'string'
-  ) {
+  if (customTransformOptions?.dom && typeof customTransformOptions.dom === 'string') {
     return chalk.bold(`DOM`) + ' ';
   }
 

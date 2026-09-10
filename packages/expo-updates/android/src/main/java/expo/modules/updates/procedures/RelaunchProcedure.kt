@@ -2,10 +2,9 @@ package expo.modules.updates.procedures
 
 import android.app.Activity
 import android.content.Context
-import com.facebook.react.ReactApplication
 import expo.modules.updates.UpdatesConfiguration
-import expo.modules.updates.db.DatabaseHolder
 import expo.modules.updates.db.Reaper
+import expo.modules.updates.db.UpdatesDatabase
 import expo.modules.updates.launcher.DatabaseLauncher
 import expo.modules.updates.launcher.Launcher
 import expo.modules.updates.loader.FileDownloader
@@ -14,6 +13,7 @@ import expo.modules.updates.logging.UpdatesLogger
 import expo.modules.updates.reloadscreen.ReloadScreenManager
 import expo.modules.updates.selectionpolicy.SelectionPolicy
 import expo.modules.updates.statemachine.UpdatesStateEvent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -26,7 +26,7 @@ class RelaunchProcedure(
   private val weakActivity: WeakReference<Activity>?,
   private val updatesConfiguration: UpdatesConfiguration,
   private val logger: UpdatesLogger,
-  private val databaseHolder: DatabaseHolder,
+  private val database: UpdatesDatabase,
   private val updatesDirectory: File,
   private val fileDownloader: FileDownloader,
   private val selectionPolicy: SelectionPolicy,
@@ -40,7 +40,7 @@ class RelaunchProcedure(
   override val loggerTimerLabel = "timer-relaunch"
 
   override suspend fun run(procedureContext: ProcedureContext) {
-    val reactApplication = context as? ReactApplication ?: run inner@{
+    val reactHost = resolveReactHostForRestart(context) ?: run inner@{
       callback.onFailure(Exception("Could not reload application. Ensure you have passed the correct instance of ReactApplication into UpdatesController.initialize()."))
       return
     }
@@ -58,6 +58,8 @@ class RelaunchProcedure(
     )
     try {
       launchWith(newLauncher)
+    } catch (e: CancellationException) {
+      throw e
     } catch (e: Exception) {
       logger.error("Error launching new launcher", e, UpdatesErrorCode.Unknown)
       callback.onFailure(e)
@@ -71,7 +73,7 @@ class RelaunchProcedure(
     procedureScope.launch {
       withContext(Dispatchers.Main) {
         reloadScreenManager?.show(weakActivity?.get())
-        reactApplication.restart(weakActivity?.get(), "Restart from RelaunchProcedure")
+        reactHost.restart(weakActivity?.get(), "Restart from RelaunchProcedure")
       }
     }
 
@@ -87,11 +89,13 @@ class RelaunchProcedure(
       try {
         Reaper.reapUnusedUpdates(
           updatesConfiguration,
-          databaseHolder.database,
+          database,
           updatesDirectory,
           getCurrentLauncher().launchedUpdate,
           selectionPolicy
         )
+      } catch (e: CancellationException) {
+        throw e
       } catch (e: Exception) {
         logger.error("Could not run Reaper.", e, UpdatesErrorCode.Unknown)
       }
@@ -99,6 +103,6 @@ class RelaunchProcedure(
   }
 
   private suspend fun launchWith(newLauncher: DatabaseLauncher) {
-    newLauncher.launch(databaseHolder.database)
+    newLauncher.launch(database)
   }
 }

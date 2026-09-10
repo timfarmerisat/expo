@@ -51,7 +51,7 @@ Constant("PI") {
 </PaddedAPIBox>
 <PaddedAPIBox header="Constants">
 
-> **warning** **Deprecated:** Use [`Constant`](#constant) instead.
+> **warning** **[Deprecated](/more/release-statuses/#deprecated):** Use [`Constant`](#constant) instead.
 
 Sets constant properties on the module. Can take a dictionary or a closure that returns a dictionary.
 
@@ -304,7 +304,7 @@ Such async functions automatically receive an instance of the native view as the
 
 #### Arguments
 
-- **viewType** — The class of the native view that will be rendered. Note: On Android, the provided class must inherit from the [`ExpoView`](#expoview), on iOS it's optional. See [`Extending ExpoView`](#extending--expoview).
+- **viewType** — The class of the native view that will be rendered. Note: On Android, the provided class must inherit from the [`ExpoView`](#expoview), on iOS it's optional. See [`Extending ExpoView`](#extending-expoview).
 - **definition**: `() -> ViewDefinition` — A builder of the view definition.
 
 <CodeBlocksTable>
@@ -943,7 +943,7 @@ Each `.from<T> { }` call registers a converter from type `T` to your custom type
 
 Some common iOS types from the `CoreGraphics` and `UIKit` system frameworks are already made convertible.
 
-| Native iOS Type         | TypeScript                                                                                                                                                                        |
+| Native iOS type         | TypeScript                                                                                                                                                                        |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `URL`                   | `string` with a URL. When a scheme is not provided, it's assumed to be a file URL.                                                                                                |
 | `CGFloat`               | `number`                                                                                                                                                                          |
@@ -960,7 +960,7 @@ Similarly, some common Android types from packages like `java.io`, `java.net`, o
 
 > **Note:** On Android, primitive arrays should be used whenever possible.
 
-| Native Android Type                                                                       | TypeScript                                                                                                                                                                        |
+| Native Android type                                                                       | TypeScript                                                                                                                                                                        |
 | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `java.net.URL`                                                                            | `string` with a URL. Note that the scheme has to be provided (URL should not contain any unencoded `%` character)                                                                 |
 | `android.net.Uri`<br/>`java.net.URI`                                                      | `string` with a URI. Note that the scheme has to be provided (URI should not contain any unencoded `%` character)                                                                 |
@@ -1020,7 +1020,7 @@ Function("readFile") { path: String, options: FileReadOptions ->
 
 <PaddedAPIBox header="Formatter">
 
-> **important** **This feature is experimental.**
+> **important** **This feature is [experimental](/more/release-statuses/#experimental).**
 
 The Formatter API allows you to customize how a Record is serialized when returned from a native function. This is useful when you need to transform property values before sending them to JavaScript, or conditionally exclude certain properties from the output.
 
@@ -1283,7 +1283,7 @@ The implementation for three Either types is currently provided out of the box, 
 
 <PaddedAPIBox header="ValueOrUndefined">
 
-> **important** **This feature is experimental.**
+> **important** **This feature is [experimental](/more/release-statuses/#experimental).**
 
 `ValueOrUndefined` is a wrapper type that allows you to distinguish between a JavaScript `undefined` value and an actual value.
 
@@ -1668,7 +1668,7 @@ class ClipboardModule : Module() {
 
 </CodeBlocksTable>
 
-To subscribe to these events in JavaScript/TypeScript, use [`addListener`](/versions/latest/sdk/expo/#addlistenereventname-listener) on the module object returned by `requireNativeModule`. Modules are extending the built-in [`EventEmitter`](/versions/latest/sdk/expo/#eventemitter) class.
+To subscribe to these events in JavaScript/TypeScript, use [`addListener`](/versions/latest/sdk/expo/#addlistenereventname-listener) on the module object returned by `requireNativeModule`. Modules are extending the built-in [`EventEmitter`](/versions/latest/sdk/expo/#eventemittertype) class.
 Alternatively, you can use [`useEvent`](/versions/latest/sdk/expo/#useeventeventemitter-eventname-initialvalue) or [`useEventListener`](/versions/latest/sdk/expo/#useeventlistenereventemitter-eventname-listener) hooks.
 
 ```ts TypeScript
