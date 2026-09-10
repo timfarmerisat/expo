@@ -1,0 +1,56 @@
+# Tests
+
+## Test 1 - Create a project and task with durable private history [sanity]
+Viewport: desktop (1280x800)
+Covers: authentication, private bootstrap, project creation, task creation, task update, database persistence, project history
+Description: Verifies the owner can sign in, create real workspace records, update a task, and retain them after refresh.
+Steps:
+1. Sign in and create a project named "QA Launch Lab" with type "AI application" and an objective.
+2. Create a High-priority task named "Confirm launch gates" and mark it complete.
+3. Refresh the workspace.
+Expected: "QA Launch Lab" remains in Recent Project History and "Confirm launch gates" remains complete in Task Control.
+
+## Test 2 - Run an AI build command with a useful recovery path
+Viewport: desktop (1280x800)
+Covers: AI build command endpoint, deep planning response, rendered result, user-visible API failure
+Description: Verifies a build command returns an actionable response and an injected failure does not erase the command.
+QA Faults:
+```json
+[{"method":"POST","path":"/api/command","status":503,"body_json":{"error":"AI runtime temporarily unavailable"},"times":1}]
+```
+Steps:
+1. Enter "Create a production MVP plan for a sourced competitor intelligence app" and run the command.
+2. Observe the injected failure message, then run the same command again.
+3. Review the Violet Forge response.
+Expected: The command remains available after failure and the retry renders a professional plan in the AI Build Command panel.
+
+## Test 3 - Analyze a source URL and save the evidence
+Viewport: desktop (1280x800)
+Covers: source URL validation, AI scrape endpoint, source-bound AI analysis, research database persistence
+Description: Verifies source-based research is tied to a real URL and appears in the research strip.
+Steps:
+1. Open Research Market and enter "https://example.com" as the source URL.
+2. Ask "What claims are directly supported by this page?" and analyze the source.
+3. Refresh the workspace and open the resulting source card.
+Expected: A saved source card for example.com remains visible and its analysis distinguishes source findings from evidence gaps.
+
+## Test 4 - Generate an image asset and upload a file
+Viewport: desktop (1280x800)
+Covers: AI image generation endpoint, private storage write, signed asset URL, file upload, file listing, destructive confirmation and deletion
+Description: Verifies production assets and files can be created, opened, retained, and safely removed.
+Steps:
+1. Generate an image with the prompt "Violet application launch presentation cover, no logos, no watermark".
+2. Open Link System, then open the File Vault and upload a text file under 2 MB.
+3. Refresh, confirm both items are visible, then delete the uploaded file and confirm deletion.
+Expected: The generated image has an openable signed URL, the uploaded file persists after refresh, and the confirmed deletion removes only that file.
+
+## Test 5 - Preview, quote, inventory and responsive report
+Viewport: mobile (375x667)
+Covers: read-only preview guardrail, quote calculation endpoint, labor and cost validation, resource inventory endpoint, planning charts, report truth boundary, responsive navigation, JSON export
+Description: Verifies the public preview blocks writes, then financial planning uses entered numbers, labels estimates honestly, and remains usable on mobile after sign-in.
+Steps:
+1. From the signed-out screen open the read-only preview, attempt to create a task, confirm the sign-in requirement, then sign in.
+2. Create a quote for "Mobile Store Launch" with price 10000, 40 labor hours, labor rate 100, tools 500, and fees 500.
+3. Add a Personnel resource named "Deployment engineer" with quantity 1 and unit cost 4000, then open the report.
+4. Export the project history.
+Expected: Preview does not create a task; the signed-in report shows estimated cost 5000, estimated profit 5000, gross margin 50.0%, includes the resource, labels results as planning estimates, and downloads a JSON export.
