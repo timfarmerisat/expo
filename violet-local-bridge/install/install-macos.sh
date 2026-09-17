@@ -22,9 +22,9 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-SOURCE_AGENT="$SCRIPT_DIR/../agent/bridge.py"
-if [[ ! -f "$SOURCE_AGENT" ]]; then
-  echo "Could not find $SOURCE_AGENT" >&2
+AGENT_DIR="$SCRIPT_DIR/../agent"
+if [[ ! -f "$AGENT_DIR/bridge.py" || ! -f "$AGENT_DIR/bridge_impl.py" ]]; then
+  echo "Could not find the Violet Local Bridge agent files in $AGENT_DIR" >&2
   exit 1
 fi
 
@@ -32,8 +32,9 @@ INSTALL_DIR="$HOME/Library/Application Support/VioletLocalBridge"
 PLIST="$HOME/Library/LaunchAgents/com.somethingdifferent.violetlocalbridge.plist"
 PYTHON="$(command -v python3)"
 mkdir -p "$INSTALL_DIR" "$HOME/Library/LaunchAgents" "$HOME/VioletBridge/Inbox" "$HOME/VioletBridge/Outbox"
-cp "$SOURCE_AGENT" "$INSTALL_DIR/bridge.py"
-chmod 700 "$INSTALL_DIR/bridge.py"
+cp "$AGENT_DIR/bridge.py" "$INSTALL_DIR/bridge.py"
+cp "$AGENT_DIR/bridge_impl.py" "$INSTALL_DIR/bridge_impl.py"
+chmod 700 "$INSTALL_DIR/bridge.py" "$INSTALL_DIR/bridge_impl.py"
 
 "$PYTHON" "$INSTALL_DIR/bridge.py" pair --server "$SERVER" --code "$PAIR"
 
