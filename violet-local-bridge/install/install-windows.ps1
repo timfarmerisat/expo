@@ -9,8 +9,10 @@ if (-not $Python) { $Python = Get-Command py -ErrorAction SilentlyContinue }
 if (-not $Python) { throw 'Python 3 is required. Install Python 3, then run this installer again.' }
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$SourceAgent = Join-Path (Split-Path -Parent $ScriptDir) 'agent\bridge.py'
-if (-not (Test-Path $SourceAgent)) { throw "Could not find $SourceAgent" }
+$AgentDir = Join-Path (Split-Path -Parent $ScriptDir) 'agent'
+$SourceAgent = Join-Path $AgentDir 'bridge.py'
+$SourceImpl = Join-Path $AgentDir 'bridge_impl.py'
+if (-not (Test-Path $SourceAgent) -or -not (Test-Path $SourceImpl)) { throw "Could not find the Violet Local Bridge agent files in $AgentDir" }
 
 $InstallDir = Join-Path $env:LOCALAPPDATA 'VioletLocalBridge'
 $WorkRoot = Join-Path $env:USERPROFILE 'VioletBridge'
@@ -19,7 +21,9 @@ $Outbox = Join-Path $WorkRoot 'Outbox'
 New-Item -ItemType Directory -Force -Path $InstallDir, $Inbox, $Outbox | Out-Null
 
 $TargetAgent = Join-Path $InstallDir 'bridge.py'
+$TargetImpl = Join-Path $InstallDir 'bridge_impl.py'
 Copy-Item -Force $SourceAgent $TargetAgent
+Copy-Item -Force $SourceImpl $TargetImpl
 
 $PythonExe = $Python.Source
 if ($Python.Name -eq 'py.exe') {
