@@ -1,0 +1,31 @@
+name: Violet Local Bridge CI
+
+on:
+  push:
+    branches:
+      - feature/violet-local-bridge
+    paths:
+      - 'violet-local-bridge/**'
+      - '.github/workflows/violet-local-bridge.yml'
+  pull_request:
+    paths:
+      - 'violet-local-bridge/**'
+      - '.github/workflows/violet-local-bridge.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify bridge agent and installer syntax
+        run: |
+          chmod +x violet-local-bridge/script/verify.sh
+          violet-local-bridge/script/verify.sh
