@@ -1,4 +1,4 @@
-import { ai, db, error, json, requireAuth, storage } from '@appdeploy/sdk';
+import { ai, db, error, json, requireAdminEmailAllowlist, requireAuth, storage, withScopes } from '@appdeploy/sdk';
 import type { RouterRoutes } from '@appdeploy/sdk';
 
 interface ProjectRecord extends Record<string, unknown> { name: string; type: string; objective: string; stage: string; createdAt: string }
@@ -11,10 +11,26 @@ interface ResourceRecord extends Record<string, unknown> { name: string; categor
 const table = (kind: string, userId: string) => `violet_forge_${kind}_${userId}`;
 const now = () => new Date().toISOString();
 const cleanName = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 100) || 'file';
-const isHttpUrl = (value: string) => { try { const url = new URL(value); return url.protocol === 'http:' || url.protocol === 'https:'; } catch { return false; } };
+const RELEASE_ID = 'vf-hardening-2026-09-17';
+const ADMIN_EMAILS = ['timfarmer@somethingdifferent.lol'];
+const ALLOWED_FILE_TYPES = new Set(['application/json', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip', 'image/jpeg', 'image/png', 'text/csv', 'text/markdown', 'text/plain']);
+const blockedHosts = new Set(['localhost', '0.0.0.0', '127.0.0.1', '::1']);
+const isSafePublicUrl = (value: string) => { try { const url = new URL(value); if (url.protocol !== 'http:' && url.protocol !== 'https:') return false; const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, ''); if (blockedHosts.has(host) || host.endsWith('.local') || host.endsWith('.internal')) return false; if (/^10\./.test(host) || /^192\.168\./.test(host) || /^169\.254\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host)) return false; return true; } catch { return false; } };
+const decodedBase64Bytes = (value: string) => Math.floor(value.length * 3 / 4) - (value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0);
 
 export const routes: RouterRoutes = {
-  'GET /api/_healthcheck': [async () => json({ status: 'ready', service: 'Violet Forge' })],
+  'GET /api/_healthcheck': [async () => json({ status: 'live', service: 'Violet Forge', release: RELEASE_ID, checkedAt: now(), dependencies: 'not_probed' })],
+  'GET /api/readiness': [requireAuth(), async (ctx) => {
+    const userId = ctx.user!.userId;
+    try {
+      const [database, files] = await Promise.all([db.list<ProjectRecord>(table('projects', userId), { limit: 1 }), storage.list({ prefix: `files/${userId}/`, limit: 1 })]);
+      return json({ status: 'ready', release: RELEASE_ID, checkedAt: now(), dependencies: { authentication: 'ready', database: 'ready', storage: 'ready' }, evidence: { projectProbeCount: database.items.length, fileProbeCount: files.paths.length } });
+    } catch (cause) {
+      console.error('Readiness probe failed', cause);
+      return error('A required Violet Forge dependency is unavailable', 503);
+    }
+  }],
+  'GET /api/admin/validation': [requireAuth(), withScopes('email'), requireAdminEmailAllowlist(ADMIN_EMAILS), async (ctx) => json({ status: 'authorized', release: RELEASE_ID, checkedAt: now(), owner: ctx.user!.email, controls: ['email-scope', 'owner-allowlist', 'user-scoped-data'] })],
   'GET /api/bootstrap': [requireAuth(), async (ctx) => {
     const userId = ctx.user!.userId;
     const [projects, tasks, research, assets, files, quotes, resources] = await Promise.all([
@@ -95,12 +111,13 @@ export const routes: RouterRoutes = {
       messages: [{ role: 'user', content: `Project: ${body.project || 'Unassigned'}\nCommand: ${body.command.trim()}` }],
       thinkingMode: 'DEEP', maxTokens: 2200, temperature: 0.35,
     });
-    await db.add(table('commands', ctx.user!.userId), [{ command: body.command.trim().slice(0, 4000), project: body.project || '', response: result.text.slice(0, 12000), createdAt: now() }]);
-    return json({ response: result.text });
+    const [commandId] = await db.add(table('commands', ctx.user!.userId), [{ command: body.command.trim().slice(0, 4000), project: body.project || '', response: result.text.slice(0, 12000), createdAt: now() }]);
+    if (!commandId) return error('The response completed but could not be added to project history', 500);
+    return json({ id: commandId, response: result.text });
   }],
   'POST /api/research': [requireAuth(), async (ctx) => {
     const body = (ctx.body || {}) as { url?: string; question?: string };
-    if (!body.url || !isHttpUrl(body.url)) return error('Enter a valid http or https source URL', 400);
+    if (!body.url || !isSafePublicUrl(body.url)) return error('Enter a public http or https source URL. Local and private-network destinations are blocked.', 400);
     const scraped = await ai.scrape({ url: body.url });
     if (scraped.status >= 400 || !scraped.text.trim()) return error('The source could not be read. Try a public article or report URL.', 502);
     const question = body.question?.trim() || 'Extract the most useful product, market, competitor, buyer, pricing, and deployment evidence.';
@@ -123,15 +140,21 @@ export const routes: RouterRoutes = {
     const [written] = await storage.write([{ path, content: generated.image.data, contentType: generated.image.mimeType }]);
     if (!written) return error('Generated image could not be saved', 500);
     const [recordId] = await db.add(table('assets', ctx.user!.userId), [{ prompt: body.prompt.trim().slice(0, 1000), path, createdAt: now() }]);
+    if (!recordId) { await storage.delete([path]); return error('Generated image metadata could not be saved; the incomplete file was removed', 500); }
     const [{ url }] = await storage.url([path]);
-    return json({ id: recordId || path, prompt: body.prompt.trim(), path, url, createdAt: now() }, 201);
+    return json({ id: recordId, prompt: body.prompt.trim(), path, url, createdAt: now() }, 201);
   }],
   'POST /api/files': [requireAuth(), async (ctx) => {
     const body = (ctx.body || {}) as { name?: string; content?: string; contentType?: string };
     if (!body.name || !body.content || !body.contentType) return error('File name, content, and type are required', 400);
-    if (body.content.length > 2800000) return error('File is too large. Upload a file under 2 MB.', 413);
+    const normalizedType = body.contentType.split(';')[0].trim().toLowerCase();
+    if (!ALLOWED_FILE_TYPES.has(normalizedType)) return error('This file type is not allowed. Use PDF, DOCX, XLSX, ZIP, PNG, JPEG, CSV, Markdown, JSON, or plain text.', 415);
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(body.content)) return error('File content must be valid Base64 data', 400);
+    if (decodedBase64Bytes(body.content) > 2_000_000) return error('File is too large. Upload a file under 2 MB.', 413);
+    const existingFiles = await storage.list({ prefix: `files/${ctx.user!.userId}/`, limit: 101 });
+    if (existingFiles.paths.length >= 100) return error('File vault limit reached. Remove an older file before uploading another.', 409);
     const path = `files/${ctx.user!.userId}/${Date.now()}-${cleanName(body.name)}`;
-    const [written] = await storage.write([{ path, content: body.content, contentType: body.contentType }]);
+    const [written] = await storage.write([{ path, content: body.content, contentType: normalizedType }]);
     if (!written) return error('File could not be uploaded', 500);
     const [{ url }] = await storage.url([path]);
     return json({ path, url, name: path.split('/').pop() || path }, 201);
