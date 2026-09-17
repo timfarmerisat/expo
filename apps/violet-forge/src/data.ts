@@ -8,11 +8,11 @@ export const upgradeModules: Array<{ id: number; name: string; status: Status }>
   { id: 5, name: 'Image asset generation', status: 'Ready' },
   { id: 6, name: 'File vault and signed links', status: 'Ready' },
   { id: 7, name: 'Conversation project memory', status: 'Ready' },
-  { id: 8, name: 'GitHub registry', status: 'Connected' },
-  { id: 9, name: 'AppDeploy app registry', status: 'Connected' },
-  { id: 10, name: 'Web release pipeline', status: 'Ready' },
+  { id: 8, name: 'GitHub repository access', status: 'Limited' },
+  { id: 9, name: 'AppDeploy runtime registry', status: 'Connected' },
+  { id: 10, name: 'Web release pipeline', status: 'Limited' },
   { id: 11, name: 'Mobile and 4K scaling', status: 'Ready' },
-  { id: 12, name: 'Health and error checks', status: 'Ready' },
+  { id: 12, name: 'Health and dependency checks', status: 'Ready' },
   { id: 13, name: 'Project export bundle', status: 'Ready' },
   { id: 14, name: 'Market signal scoring', status: 'Limited' },
   { id: 15, name: 'Competitor watchlist', status: 'Ready' },
@@ -40,12 +40,15 @@ export const appDeployApps = [
 ];
 
 export const deploymentTargets = [
-  { name: 'Web (AppDeploy)', status: 'Connected' as Status, detail: 'Public web deployment', url: 'https://dashboard.appdeploy.ai' },
+  { name: 'Web (AppDeploy)', status: 'Connected' as Status, detail: 'Violet Forge runtime verified on 2026-09-17', url: 'https://dashboard.appdeploy.ai' },
+  { name: 'Google Drive', status: 'Limited' as Status, detail: 'Profile authenticated; file search remains in reauthorization loop', url: 'https://drive.google.com/' },
+  { name: 'Gmail', status: 'Setup Required' as Status, detail: 'Account authenticates but Gmail service is not enabled', url: 'https://mail.google.com/' },
+  { name: 'Google Calendar', status: 'Setup Required' as Status, detail: 'Account authenticates but is not registered as a Calendar user', url: 'https://calendar.google.com/' },
   { name: 'Apple App Store', status: 'Setup Required' as Status, detail: 'Developer credentials needed', url: 'https://appstoreconnect.apple.com/' },
   { name: 'Google Play', status: 'Setup Required' as Status, detail: 'Console credentials needed', url: 'https://play.google.com/console/' },
   { name: 'Microsoft Store', status: 'Setup Required' as Status, detail: 'Partner Center needed', url: 'https://partner.microsoft.com/dashboard' },
   { name: 'Game / Arcade', status: 'Hardware Required' as Status, detail: 'Audit target hardware', url: 'https://docs.unity3d.com/' },
-  { name: 'GitHub', status: 'Connected' as Status, detail: 'timfarmerisat/expo', url: 'https://github.com/timfarmerisat/expo' },
+  { name: 'GitHub', status: 'Limited' as Status, detail: 'Repository admin access verified; PR #2 workflow evidence remains required', url: 'https://github.com/timfarmerisat/expo/pull/2' },
   { name: 'DNS & Domains', status: 'Setup Required' as Status, detail: 'Add domain records', url: 'https://dashboard.appdeploy.ai' },
   { name: 'Payments', status: 'Setup Required' as Status, detail: 'Connect provider', url: 'https://stripe.com/docs' },
 ];
