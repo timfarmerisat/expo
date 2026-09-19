@@ -1,0 +1,14 @@
+{
+  "methods": ["google", "apple", "x"],
+  "headline": "Sign in to Violet Forge",
+  "subtitle": "Open your private Somethingdifferent LLC build, research, asset, quote, file and deployment workspace.",
+  "style": {
+    "mode": "dark",
+    "accentColor": "#9a42e6",
+    "backgroundColor": "#030811",
+    "panelColor": "#081321",
+    "textColor": "#ecf3ff",
+    "fontFamily": "Inter, system-ui, sans-serif",
+    "borderRadius": 12
+  }
+}
