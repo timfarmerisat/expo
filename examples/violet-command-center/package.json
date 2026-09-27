@@ -1,0 +1,13 @@
+{
+  "name": "violet-command-center",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone Violet intelligence command center, with local-first assets, tasks, and assistant guidance.",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "node server.mjs",
+    "start": "node server.mjs",
+    "test": "node --test"
+  }
+}
