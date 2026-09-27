@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#080c1a" />
+    <meta name="description" content="Violet Intelligence Command Center — local-first workspace for systems, assets, tasks, and assistant guidance." />
+    <title>Violet Intelligence Command Center</title>
+    <link rel="manifest" href="./app.webmanifest" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#workspace">Skip to workspace</a>
+    <div id="app" class="app-shell">
+      <div class="boot-state" role="status">
+        <span class="boot-orb" aria-hidden="true"></span>
+        <p>Starting Violet workspace…</p>
+      </div>
+    </div>
+    <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
