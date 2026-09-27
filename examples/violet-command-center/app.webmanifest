@@ -1,0 +1,10 @@
+{
+  "name": "Violet Intelligence Command Center",
+  "short_name": "Violet",
+  "description": "Local-first systems and innovation workspace.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#080c1a",
+  "theme_color": "#080c1a",
+  "icons": [{ "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
