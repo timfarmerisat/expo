@@ -41,17 +41,12 @@ jobs:
           GH_TOKEN: ${{ secrets.EXPO_BOT_GITHUB_TOKEN }}
           ACTOR: ${{ github.event.comment.user.login }}
         run: |
-          # `|| echo none` on purpose: a non-collaborator gets a 404, and under
-          # `bash -e` a bare assignment would kill the step before the error
-          # below could name the reason.
           permission=$(gh api "repos/${{ github.repository }}/collaborators/$ACTOR/permission" --jq .permission 2>/dev/null || echo none)
           case "$permission" in
             admin|maintain|write) ;;
             *) echo "::error::$ACTOR has '$permission' permission; write access is required."; exit 1 ;;
           esac
 
-      # Default branch only — the manpage on main is what we publish, never
-      # a PR-head edit of .github/expo-bot.md.
       - name: Checkout (default branch)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -59,7 +54,6 @@ jobs:
           persist-credentials: false
 
       - name: Publish manpage if stale
-        # Comments still post if sync fails; cron/dispatch should surface a miss.
         continue-on-error: ${{ github.event_name == 'issue_comment' }}
         env:
           GH_TOKEN: ${{ secrets.EXPO_BOT_GITHUB_TOKEN }}
