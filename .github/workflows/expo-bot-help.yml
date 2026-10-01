@@ -68,7 +68,7 @@ jobs:
       - name: Post command list
         if: github.event_name == 'issue_comment'
         env:
-          GH_TOKEN: ${{ secrets.EXPO_BOT_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           NUMBER: ${{ github.event.issue.number }}
           REPO: ${{ github.repository }}
         run: |
