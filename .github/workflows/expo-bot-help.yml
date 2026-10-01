@@ -88,3 +88,4 @@ jobs:
           Review, dismiss, and work are pull-request only. Verify and help also run on issues.
           MARKDOWN
           gh issue comment "$NUMBER" -R "$REPO" --body-file /tmp/expo-bot-help.md
+          echo "✅ Posted expo-bot help comment" >> "$GITHUB_STEP_SUMMARY"
