@@ -1,0 +1,378 @@
+{
+  "version": "1.0.0",
+  "model": "violet-department-registry",
+  "truthBoundary": "Registry entries describe architecture and responsibilities. Runtime health and completion must come from current evidence records.",
+  "sharedPageContract": {
+    "sections": [
+      "summary",
+      "chat",
+      "status",
+      "tasks",
+      "approvals",
+      "assets",
+      "connections",
+      "roles",
+      "evidence",
+      "activity",
+      "blockers",
+      "recovery",
+      "nextMilestone"
+    ],
+    "statusLights": [
+      "Green",
+      "Yellow",
+      "Red"
+    ],
+    "connectionStates": [
+      "Disconnected",
+      "Permission Required",
+      "Connecting",
+      "Connected",
+      "Limited",
+      "Syncing",
+      "Error"
+    ],
+    "confidenceStates": [
+      "Verified",
+      "Supported",
+      "Stale",
+      "Conflicting",
+      "Unknown"
+    ]
+  },
+  "departments": [
+    {
+      "id": "command-strategy",
+      "name": "Command & Strategy",
+      "route": "#department/command-strategy",
+      "mission": "Route intent, prioritize work, govern approvals, coordinate dependencies, and produce executive operating briefs.",
+      "roles": [
+        "Operator",
+        "Router",
+        "Scheduler",
+        "Briefing",
+        "Memory",
+        "Governance",
+        "Escalation"
+      ],
+      "capabilities": [
+        "command routing",
+        "portfolio prioritization",
+        "dependency coordination",
+        "approval orchestration",
+        "executive briefing",
+        "decision receipts",
+        "escalation management"
+      ],
+      "recommendedIndicators": [
+        "open decisions",
+        "blocked dependencies",
+        "approval age",
+        "release gate status"
+      ]
+    },
+    {
+      "id": "research-intelligence",
+      "name": "Research & Intelligence",
+      "route": "#department/research-intelligence",
+      "mission": "Collect, evaluate, synthesize, cite, and preserve evidence while separating verified facts from hypotheses.",
+      "roles": [
+        "Research Lead",
+        "Source Scout",
+        "Learning Coach",
+        "Curriculum Mapper",
+        "Claim Checker",
+        "Citation Tracker",
+        "Archive Clerk"
+      ],
+      "capabilities": [
+        "source discovery",
+        "research synthesis",
+        "claim review",
+        "citation traceability",
+        "learning paths",
+        "knowledge indexing",
+        "archive stewardship"
+      ],
+      "recommendedIndicators": [
+        "source freshness",
+        "uncited claims",
+        "research queue",
+        "knowledge coverage"
+      ]
+    },
+    {
+      "id": "engineering-development",
+      "name": "Engineering & Development",
+      "route": "#department/engineering-development",
+      "mission": "Build, test, integrate, package, and release reliable web, mobile, local, API, and automation software.",
+      "roles": [
+        "Frontend",
+        "Backend",
+        "Mobile",
+        "PWA",
+        "Security",
+        "Performance",
+        "Release Engineer"
+      ],
+      "capabilities": [
+        "frontend engineering",
+        "backend engineering",
+        "mobile delivery",
+        "PWA",
+        "security engineering",
+        "performance engineering",
+        "release engineering"
+      ],
+      "recommendedIndicators": [
+        "test pass rate",
+        "build status",
+        "runtime errors",
+        "performance budget",
+        "release readiness"
+      ]
+    },
+    {
+      "id": "creative-design",
+      "name": "Creative & Design",
+      "route": "#department/creative-design",
+      "mission": "Create a coherent design system, high-definition visual language, prototypes, motion, accessibility, and design QA.",
+      "roles": [
+        "Experience Designer",
+        "Visual Director",
+        "Brand Voice",
+        "Motion Designer",
+        "Prototype Builder",
+        "Accessibility Reviewer",
+        "Design QA"
+      ],
+      "capabilities": [
+        "design system",
+        "visual direction",
+        "brand system",
+        "motion",
+        "prototype production",
+        "accessibility",
+        "design QA"
+      ],
+      "recommendedIndicators": [
+        "asset readiness",
+        "accessibility findings",
+        "design QA issues",
+        "component reuse"
+      ]
+    },
+    {
+      "id": "content-media",
+      "name": "Content & Media",
+      "route": "#department/content-media",
+      "mission": "Produce, manage, version, and approve written, audio, visual, video, and document content.",
+      "roles": [
+        "Web Copy",
+        "SEO",
+        "Email",
+        "Social",
+        "Video",
+        "Podcast",
+        "Document Writer"
+      ],
+      "capabilities": [
+        "web content",
+        "SEO",
+        "email content",
+        "social content",
+        "video production",
+        "podcast production",
+        "document production"
+      ],
+      "recommendedIndicators": [
+        "content queue",
+        "approval status",
+        "asset reuse",
+        "source coverage"
+      ]
+    },
+    {
+      "id": "business-finance",
+      "name": "Business & Finance",
+      "route": "#department/business-finance",
+      "mission": "Model offers, pricing, revenue, proposals, delivery economics, accounts, and financial evidence without confusing projections with actuals.",
+      "roles": [
+        "Offer Strategist",
+        "Buyer Analyst",
+        "Proposal Writer",
+        "Pricing Planner",
+        "Revenue Analyst",
+        "Account Success",
+        "Delivery Manager"
+      ],
+      "capabilities": [
+        "offer design",
+        "buyer analysis",
+        "proposal generation",
+        "pricing",
+        "revenue analysis",
+        "account success",
+        "delivery economics"
+      ],
+      "recommendedIndicators": [
+        "actual vs projected revenue",
+        "margin evidence",
+        "pipeline stage",
+        "delivery status"
+      ]
+    },
+    {
+      "id": "marketing-growth",
+      "name": "Marketing & Growth",
+      "route": "#department/marketing-growth",
+      "mission": "Plan campaigns, map demand signals, improve funnels, partnerships, demos, and feedback loops using sourced market evidence.",
+      "roles": [
+        "Campaign Planner",
+        "Trend Mapper",
+        "Community Lead",
+        "Funnel Builder",
+        "Partnership Planner",
+        "Demo Script",
+        "Feedback Loop"
+      ],
+      "capabilities": [
+        "campaign planning",
+        "trend analysis",
+        "community",
+        "funnel design",
+        "partnerships",
+        "demo strategy",
+        "feedback systems"
+      ],
+      "recommendedIndicators": [
+        "campaign status",
+        "source freshness",
+        "conversion evidence",
+        "experiment queue"
+      ]
+    },
+    {
+      "id": "health-wellness",
+      "name": "Health & Wellness",
+      "route": "#department/health-wellness",
+      "mission": "Support wellness-oriented planning, accessibility, habits, reflection, and safe resource guidance with clear evidence boundaries.",
+      "roles": [
+        "Wellness Planner",
+        "Habit Coach",
+        "Reflection Guide",
+        "Learning Balance",
+        "Safety Reviewer",
+        "Accessibility Coach",
+        "Resource Guide"
+      ],
+      "capabilities": [
+        "wellness planning",
+        "habit support",
+        "reflection",
+        "learning balance",
+        "safety review",
+        "accessibility coaching",
+        "resource guidance"
+      ],
+      "recommendedIndicators": [
+        "review status",
+        "safety flags",
+        "accessibility issues",
+        "resource evidence"
+      ]
+    },
+    {
+      "id": "operations-management",
+      "name": "Operations & Management",
+      "route": "#department/operations-management",
+      "mission": "Operate installation, maintenance, backups, restore, diagnostics, runbooks, support, and incident recovery.",
+      "roles": [
+        "Install Assistant",
+        "Maintenance",
+        "Backup",
+        "Restore",
+        "Diagnostics",
+        "Runbook",
+        "Support Desk"
+      ],
+      "capabilities": [
+        "installation",
+        "maintenance",
+        "backup",
+        "restore",
+        "diagnostics",
+        "runbooks",
+        "support"
+      ],
+      "recommendedIndicators": [
+        "backup age",
+        "restore verification",
+        "incident count",
+        "service health",
+        "support backlog"
+      ]
+    },
+    {
+      "id": "communications-media",
+      "name": "Communications & Media",
+      "route": "#department/communications-media",
+      "mission": "Coordinate live rooms, voice, meetings, translation, tone, presentations, and media library operations.",
+      "roles": [
+        "Live Room Host",
+        "Voice Director",
+        "Meeting Guide",
+        "Translator",
+        "Tone Adapter",
+        "Presentation Lead",
+        "Media Librarian"
+      ],
+      "capabilities": [
+        "live collaboration",
+        "voice",
+        "meetings",
+        "translation",
+        "tone adaptation",
+        "presentations",
+        "media library"
+      ],
+      "recommendedIndicators": [
+        "room health",
+        "voice capability",
+        "media readiness",
+        "communication queue"
+      ]
+    },
+    {
+      "id": "security-privacy",
+      "name": "Security & Privacy",
+      "route": "#department/security-privacy",
+      "mission": "Enforce access control, privacy, threat monitoring, data stewardship, evidence audit, compliance mapping, and recovery governance.",
+      "roles": [
+        "Privacy Reviewer",
+        "Access Control",
+        "Threat Monitor",
+        "Data Steward",
+        "Evidence Auditor",
+        "Compliance Mapper",
+        "Recovery Lead"
+      ],
+      "capabilities": [
+        "privacy review",
+        "access control",
+        "threat monitoring",
+        "data stewardship",
+        "evidence audit",
+        "compliance mapping",
+        "recovery governance"
+      ],
+      "recommendedIndicators": [
+        "auth failures",
+        "permission exceptions",
+        "credential state",
+        "open findings",
+        "recovery readiness"
+      ]
+    }
+  ]
+}
