@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://somethingdifferent.lol/schemas/violet-release-receipt.schema.json",
+  "title": "Violet Release Evidence Receipt",
+  "type": "object",
+  "required": [
+    "releaseId",
+    "createdAt",
+    "source",
+    "tests",
+    "runtime",
+    "storage",
+    "security",
+    "recovery",
+    "decision"
+  ],
+  "properties": {
+    "releaseId": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "repository",
+        "branch",
+        "commitSha"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "commitSha": {
+          "type": "string"
+        },
+        "pullRequests": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "packageChecksum": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "tests": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "partial",
+            "not-run"
+          ]
+        },
+        "suites": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "artifactUri": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "required": [
+        "status",
+        "services"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "Green",
+            "Yellow",
+            "Red"
+          ]
+        },
+        "services": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "properties": {
+        "persistenceRestartTest": {
+          "enum": [
+            "passed",
+            "failed",
+            "not-run"
+          ]
+        },
+        "databaseIntegrity": {
+          "enum": [
+            "passed",
+            "failed",
+            "not-run"
+          ]
+        },
+        "fileIntegrity": {
+          "enum": [
+            "passed",
+            "failed",
+            "not-run"
+          ]
+        }
+      }
+    },
+    "security": {
+      "type": "object",
+      "properties": {
+        "authentication": {
+          "enum": [
+            "passed",
+            "failed",
+            "partial",
+            "not-run"
+          ]
+        },
+        "authorization": {
+          "enum": [
+            "passed",
+            "failed",
+            "partial",
+            "not-run"
+          ]
+        },
+        "credentialIsolation": {
+          "enum": [
+            "passed",
+            "failed",
+            "partial",
+            "not-run"
+          ]
+        },
+        "providerScopes": {
+          "enum": [
+            "passed",
+            "failed",
+            "partial",
+            "not-run"
+          ]
+        }
+      }
+    },
+    "recovery": {
+      "type": "object",
+      "properties": {
+        "backupCreated": {
+          "type": "boolean"
+        },
+        "backupChecksumVerified": {
+          "type": "boolean"
+        },
+        "restoreTest": {
+          "enum": [
+            "passed",
+            "failed",
+            "not-run"
+          ]
+        },
+        "rollbackReference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "required": [
+        "state"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "approved",
+            "blocked",
+            "candidate"
+          ]
+        },
+        "actor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}
