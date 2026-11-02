@@ -14,6 +14,26 @@ Request received -> Understanding -> Planning -> Awaiting Approval -> Executing 
 
 No UI may display Connected, Healthy, Online, 100%, or Verified unless it is backed by a current measured check.
 
+## System planes
+
+### Experience plane
+Chat-first command surface, high-definition dashboard, mobile quick actions, department pages, voice/live collaboration, assets, evidence, approvals and administration.
+
+### Intelligence plane
+Intent routing, context retrieval, planning, tool selection, model selection, execution, verification, evidence recording and reporting. See `INTELLIGENCE_UPGRADE.md`.
+
+### Domain plane
+The 11 departments and 77 specialist role profiles defined in `specs/department-registry.json`.
+
+### Integration plane
+GitHub, Drive, communications, providers, deployed services, databases, storage and Local Bridge all use one connection-state and evidence contract.
+
+### Data plane
+Operational database, files/object storage, search indexes, audit/event journal, evidence records, asset manifests, backups and release receipts.
+
+### Reliability plane
+Health aggregation, diagnostics, correlation IDs, incidents, recovery actions, backup/restore, release gates and rollback.
+
 ## Shared department page contract
 
 Every department receives its own page but uses one shared data model:
@@ -45,15 +65,91 @@ Every department receives its own page but uses one shared data model:
 
 System-wide pages: Overview, Chat, Connections, Assets, Evidence, Approvals, Release/QA, Administration.
 
+The complete role/page registry is in `specs/department-registry.json`.
+
 ## Connection state model
 
 Disconnected | Permission Required | Connecting | Connected | Limited | Syncing | Error
 
+Connection state is separate from evidence confidence:
+
+Verified | Supported | Stale | Conflicting | Unknown
+
 Each connector must expose: provider, account label, granted scopes, last successful check, last failure, expiry/rotation metadata when applicable, and Reconnect / Why unavailable actions.
+
+The portable registry contract is defined in `specs/system-registry.schema.json`.
+
+## Asset and graphics architecture
+
+Every production image, video, audio, document, model, chart, code package or archive becomes a versioned asset record with:
+
+- source lineage
+- SHA-256 or equivalent checksum
+- MIME/type and dimensions
+- responsive/HD derivatives
+- accessibility metadata
+- department/task/release relationships
+- approval state
+- lifecycle/version history
+- evidence links
+
+The canonical contract is `specs/asset-manifest.schema.json`; the display and graphics rules are in `HIGH_DEFINITION_INTERFACE.md`.
 
 ## Intelligence model
 
 The assistant may use local models and approved cloud providers through adapters. Provider output is not itself evidence. Claims that affect operations, security, finance, health, or release state require source/evidence records.
+
+Operational state must never come from conversational memory alone. It must come from current registry/runtime evidence.
+
+## Event and evidence fabric
+
+Every important state change should carry:
+
+- event/receipt ID
+- correlation ID
+- actor
+- source system
+- target object
+- action
+- before/after state when applicable
+- timestamp
+- result
+- evidence/source references
+- approval reference when required
+
+This allows chat -> task -> tool -> file -> deployment -> release to be reconstructed without guessing.
+
+## Offline/local-first synchronization
+
+Records intended for local/offline work should support:
+
+- stable ID
+- version
+- updatedAt
+- actor/source device
+- tombstone for deletions
+- checksum for files
+- conflict state
+- explicit operator resolution when automatic merge is unsafe
+
+No sync engine should silently overwrite conflicting authoritative records.
+
+## Observability and recovery
+
+The system should aggregate:
+
+- service health
+- latency
+- error rate
+- data freshness
+- queue/backlog state
+- auth/provider failures
+- storage pressure
+- backup age
+- restore status
+- incident/recovery receipts
+
+Self-heal actions are allowed only when pre-approved, reversible, and recorded. Destructive repair is never automatic.
 
 ## Release gates
 
@@ -70,6 +166,22 @@ A release is Green only when all are true:
 9. Local Bridge pairing and command approval boundaries pass.
 10. Package checksum, runtime measurements, deployment version, and rollback point are recorded.
 
+A structured receipt for these gates is defined in `specs/release-receipt.schema.json`.
+
+## Architecture validation
+
+`scripts/validate_specs.py` verifies the department count, unique 77-role catalog, canonical connection-state contract, and basic JSON-schema integrity.
+
+The GitHub workflow `.github/workflows/violet-release-hardening.yml` validates:
+
+- preflight shell syntax
+- backup shell syntax
+- Microsoft connector Python syntax
+- architecture specification Python syntax
+- department/role contract integrity
+
 ## Current integration rule
 
 Do not shut down hosted systems, delete duplicates, or merge PR #2/#3 solely because a UI appears healthy. Hosted systems remain migration/rollback sources until the independent local release passes the gate.
+
+See `ARCHITECTURE_GAP_REGISTER.md` for the prioritized remaining work.
