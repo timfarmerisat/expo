@@ -101,6 +101,26 @@ The assistant may use local models and approved cloud providers through adapters
 
 Operational state must never come from conversational memory alone. It must come from current registry/runtime evidence.
 
+
+## Assistant, service and action catalog
+
+The pre-install architecture includes a department-aware assistant and service catalog in `specs/assistant-service-catalog.json`.
+
+It distinguishes four separate questions for every capability:
+
+1. Is the capability available?
+2. Is the plugin/tool installed?
+3. Is the account/service connected and authorized?
+4. Has the capability been verified by current evidence?
+
+The interface must never collapse those into one green state.
+
+Every visible operational button follows `specs/action-contract.schema.json` and the no-dead-end rules in `NO_DEAD_ENDS_NAVIGATION.md`.
+
+The action model requires a destination, permission, confirmation level, expected result, next step, unavailable explanation and recovery action. The initial reusable actions are defined in `specs/action-catalog.json`.
+
+Communication options are defined in `specs/communication-channels.json` so chat, live room, voice, email, calendar, team messaging, notifications, file handoff and Local Bridge can each show their real availability and fallback behavior.
+
 ## Event and evidence fabric
 
 Every important state change should carry:
