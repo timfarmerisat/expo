@@ -1,0 +1,577 @@
+{
+  "version": "1.0.0",
+  "truthBoundary": "Availability means the capability can be represented in the architecture. Installed, connected, authorized, and verified are distinct states and must be measured separately at runtime.",
+  "lifecycleStates": [
+    "Available",
+    "Installed",
+    "Connection Required",
+    "Permission Required",
+    "Connected",
+    "Verified",
+    "Limited",
+    "Error"
+  ],
+  "sharedAssistants": [
+    {
+      "id": "violet-command",
+      "name": "Violet Command Partner",
+      "purpose": "Route intent across departments, tools, evidence, approvals and next steps.",
+      "defaultMode": "Guide"
+    },
+    {
+      "id": "evidence-reviewer",
+      "name": "Evidence Reviewer",
+      "purpose": "Check claims, status, sources, freshness and release evidence before completion.",
+      "defaultMode": "Verify"
+    },
+    {
+      "id": "builder",
+      "name": "Builder",
+      "purpose": "Turn approved plans into code, documents, assets, workflows and testable deliverables.",
+      "defaultMode": "Build"
+    },
+    {
+      "id": "operations-coordinator",
+      "name": "Operations Coordinator",
+      "purpose": "Track dependencies, failures, recovery, maintenance and release readiness.",
+      "defaultMode": "Operate"
+    },
+    {
+      "id": "experience-designer",
+      "name": "Experience Designer",
+      "purpose": "Keep interaction, navigation, accessibility and visual systems coherent.",
+      "defaultMode": "Design"
+    },
+    {
+      "id": "researcher",
+      "name": "Researcher",
+      "purpose": "Collect and synthesize grounded evidence with source traceability.",
+      "defaultMode": "Research"
+    }
+  ],
+  "platformCapabilities": [
+    {
+      "id": "chat",
+      "name": "Chat & conversation",
+      "state": "Installed",
+      "connection": "not-required",
+      "departments": [
+        "*"
+      ]
+    },
+    {
+      "id": "files",
+      "name": "File intake & library",
+      "state": "Installed",
+      "connection": "not-required",
+      "departments": [
+        "*"
+      ]
+    },
+    {
+      "id": "github",
+      "name": "GitHub",
+      "state": "Installed",
+      "connection": "runtime-verification-required",
+      "departments": [
+        "command-strategy",
+        "engineering-development",
+        "operations-management",
+        "security-privacy"
+      ]
+    },
+    {
+      "id": "linear",
+      "name": "Linear",
+      "state": "Installed",
+      "connection": "runtime-verification-required",
+      "departments": [
+        "command-strategy",
+        "engineering-development",
+        "operations-management"
+      ]
+    },
+    {
+      "id": "data",
+      "name": "Data analytics",
+      "state": "Installed",
+      "connection": "runtime-verification-required",
+      "departments": [
+        "research-intelligence",
+        "business-finance",
+        "marketing-growth",
+        "operations-management"
+      ]
+    },
+    {
+      "id": "figma",
+      "name": "Figma",
+      "state": "Installed",
+      "connection": "runtime-verification-required",
+      "departments": [
+        "creative-design",
+        "engineering-development",
+        "content-media"
+      ]
+    },
+    {
+      "id": "canva",
+      "name": "Canva",
+      "state": "Installed",
+      "connection": "runtime-verification-required",
+      "departments": [
+        "creative-design",
+        "content-media",
+        "marketing-growth",
+        "communications-media"
+      ]
+    },
+    {
+      "id": "product-design",
+      "name": "Product Design",
+      "state": "Installed",
+      "connection": "not-required-or-runtime-verification",
+      "departments": [
+        "creative-design",
+        "engineering-development",
+        "command-strategy"
+      ]
+    },
+    {
+      "id": "slack",
+      "name": "Slack",
+      "state": "Available",
+      "connection": "install-and-connect-required",
+      "departments": [
+        "communications-media",
+        "operations-management",
+        "command-strategy"
+      ]
+    },
+    {
+      "id": "hubspot",
+      "name": "HubSpot",
+      "state": "Available",
+      "connection": "install-and-connect-required",
+      "departments": [
+        "business-finance",
+        "marketing-growth",
+        "communications-media"
+      ]
+    },
+    {
+      "id": "notion",
+      "name": "Notion",
+      "state": "Available",
+      "connection": "install-and-connect-required",
+      "departments": [
+        "research-intelligence",
+        "operations-management",
+        "command-strategy",
+        "content-media"
+      ]
+    },
+    {
+      "id": "power-bi",
+      "name": "Microsoft Power BI",
+      "state": "Available",
+      "connection": "install-and-connect-required",
+      "departments": [
+        "business-finance",
+        "operations-management",
+        "marketing-growth"
+      ]
+    },
+    {
+      "id": "adobe",
+      "name": "Adobe",
+      "state": "Available",
+      "connection": "install-and-connect-required",
+      "departments": [
+        "creative-design",
+        "content-media",
+        "communications-media"
+      ]
+    },
+    {
+      "id": "amplitude",
+      "name": "Amplitude",
+      "state": "Available",
+      "connection": "install-and-connect-required",
+      "departments": [
+        "marketing-growth",
+        "engineering-development",
+        "business-finance"
+      ]
+    }
+  ],
+  "departments": [
+    {
+      "id": "command-strategy",
+      "assistants": [
+        "Executive Director",
+        "Program Router",
+        "Decision Analyst",
+        "Briefing Director"
+      ],
+      "services": [
+        "portfolio graph",
+        "dependency planner",
+        "approval ledger",
+        "release gate",
+        "executive briefing",
+        "task routing"
+      ],
+      "primaryButtons": [
+        "Ask Command",
+        "Create Initiative",
+        "Review Blockers",
+        "Approve / Decline",
+        "Verify Release",
+        "Next Best Action"
+      ],
+      "secondaryButtons": [
+        "Open Dependency Map",
+        "Create Executive Brief",
+        "Compare Priorities",
+        "Assign Department",
+        "Open Evidence",
+        "Escalate Issue"
+      ]
+    },
+    {
+      "id": "research-intelligence",
+      "assistants": [
+        "Research Director",
+        "Source Scout",
+        "Claim Auditor",
+        "Knowledge Curator"
+      ],
+      "services": [
+        "source research",
+        "citation graph",
+        "knowledge index",
+        "claim review",
+        "research archive",
+        "learning paths"
+      ],
+      "primaryButtons": [
+        "Research Topic",
+        "Verify Claim",
+        "Compare Sources",
+        "Add to Knowledge",
+        "Create Research Task",
+        "Generate Brief"
+      ],
+      "secondaryButtons": [
+        "Open Source Map",
+        "Check Freshness",
+        "Find Conflicts",
+        "Build Learning Path",
+        "Archive Evidence",
+        "Send for Approval"
+      ]
+    },
+    {
+      "id": "engineering-development",
+      "assistants": [
+        "Engineering Director",
+        "Architecture Reviewer",
+        "Code Builder",
+        "Release Engineer"
+      ],
+      "services": [
+        "repository",
+        "code review",
+        "CI/test",
+        "runtime diagnostics",
+        "API contracts",
+        "performance"
+      ],
+      "primaryButtons": [
+        "Build Feature",
+        "Review Code",
+        "Run Tests",
+        "Check Runtime",
+        "Create Issue",
+        "Prepare Release"
+      ],
+      "secondaryButtons": [
+        "Open Repository",
+        "Inspect CI",
+        "Trace Error",
+        "Profile Performance",
+        "Generate Patch",
+        "Request Merge Review"
+      ]
+    },
+    {
+      "id": "creative-design",
+      "assistants": [
+        "Creative Director",
+        "Experience Designer",
+        "Visual Systems Lead",
+        "Accessibility Reviewer"
+      ],
+      "services": [
+        "design system",
+        "prototype",
+        "image generation",
+        "brand QA",
+        "accessibility",
+        "asset derivatives"
+      ],
+      "primaryButtons": [
+        "Create Design",
+        "Generate Image",
+        "Prototype Flow",
+        "Review UX",
+        "Check Brand",
+        "Prepare Assets"
+      ],
+      "secondaryButtons": [
+        "Open Figma",
+        "Open Canva",
+        "Create Variants",
+        "Resize / Export",
+        "Accessibility Review",
+        "Send to Build"
+      ]
+    },
+    {
+      "id": "content-media",
+      "assistants": [
+        "Content Director",
+        "Editorial Strategist",
+        "Media Producer",
+        "Document Specialist"
+      ],
+      "services": [
+        "documents",
+        "web copy",
+        "social",
+        "video",
+        "audio",
+        "SEO",
+        "asset library"
+      ],
+      "primaryButtons": [
+        "Create Content",
+        "Draft Document",
+        "Create Media",
+        "SEO Review",
+        "Publish Checklist",
+        "Request Approval"
+      ],
+      "secondaryButtons": [
+        "Open Asset Library",
+        "Create Variants",
+        "Add Sources",
+        "Generate Captions",
+        "Create Campaign Pack",
+        "Archive Version"
+      ]
+    },
+    {
+      "id": "business-finance",
+      "assistants": [
+        "Business Director",
+        "Revenue Analyst",
+        "Pricing Strategist",
+        "Proposal Director"
+      ],
+      "services": [
+        "pricing",
+        "pipeline",
+        "revenue analysis",
+        "quote/proposal",
+        "actual-vs-projected",
+        "account operations"
+      ],
+      "primaryButtons": [
+        "Review Revenue",
+        "Build Quote",
+        "Analyze Margin",
+        "Create Proposal",
+        "Review Pipeline",
+        "Next Revenue Action"
+      ],
+      "secondaryButtons": [
+        "Open CRM",
+        "Open Dashboard",
+        "Compare Actuals",
+        "Scenario Model",
+        "Review Accounts",
+        "Export Finance Brief"
+      ]
+    },
+    {
+      "id": "marketing-growth",
+      "assistants": [
+        "Growth Director",
+        "Campaign Strategist",
+        "Market Analyst",
+        "Experiment Lead"
+      ],
+      "services": [
+        "campaign planning",
+        "analytics",
+        "experiments",
+        "funnels",
+        "market intelligence",
+        "audience insights"
+      ],
+      "primaryButtons": [
+        "Create Campaign",
+        "Research Market",
+        "Review Funnel",
+        "Analyze Performance",
+        "Create Experiment",
+        "Recommend Next Action"
+      ],
+      "secondaryButtons": [
+        "Open Analytics",
+        "Open CRM",
+        "Create Creative Brief",
+        "Compare Channels",
+        "Review Attribution",
+        "Send Campaign for Approval"
+      ]
+    },
+    {
+      "id": "health-wellness",
+      "assistants": [
+        "Wellness Director",
+        "Safety Reviewer",
+        "Accessibility Coach",
+        "Resource Curator"
+      ],
+      "services": [
+        "wellness planning",
+        "resource guidance",
+        "accessibility",
+        "safety review",
+        "habits",
+        "reflection"
+      ],
+      "primaryButtons": [
+        "Create Plan",
+        "Review Safety",
+        "Find Resources",
+        "Accessibility Check",
+        "Create Reminder",
+        "Review Progress"
+      ],
+      "secondaryButtons": [
+        "Open Evidence",
+        "Create Reflection",
+        "Adjust Plan",
+        "Escalate Concern",
+        "Export Summary",
+        "Next Safe Step"
+      ]
+    },
+    {
+      "id": "operations-management",
+      "assistants": [
+        "Operations Director",
+        "Reliability Engineer",
+        "Backup & Recovery Lead",
+        "Support Coordinator"
+      ],
+      "services": [
+        "service health",
+        "backups",
+        "restore",
+        "incidents",
+        "runbooks",
+        "maintenance",
+        "support queue"
+      ],
+      "primaryButtons": [
+        "Check System",
+        "Run Diagnostics",
+        "Create Backup",
+        "Test Restore",
+        "Open Incident",
+        "Run Maintenance"
+      ],
+      "secondaryButtons": [
+        "View Logs",
+        "Review Storage",
+        "Check Dependencies",
+        "Open Runbook",
+        "Create Support Task",
+        "Verify Recovery"
+      ]
+    },
+    {
+      "id": "communications-media",
+      "assistants": [
+        "Communications Director",
+        "Live Room Host",
+        "Voice Director",
+        "Presentation Lead"
+      ],
+      "services": [
+        "live room",
+        "voice",
+        "email",
+        "calendar",
+        "team messaging",
+        "presentations",
+        "translation"
+      ],
+      "primaryButtons": [
+        "Start Conversation",
+        "Open Live Room",
+        "Draft Email",
+        "Schedule Meeting",
+        "Create Presentation",
+        "Send Update"
+      ],
+      "secondaryButtons": [
+        "Open Slack",
+        "Open Calendar",
+        "Translate",
+        "Change Tone",
+        "Record Brief",
+        "Review Communications"
+      ]
+    },
+    {
+      "id": "security-privacy",
+      "assistants": [
+        "Security Director",
+        "Access Control Lead",
+        "Privacy Reviewer",
+        "Recovery Auditor"
+      ],
+      "services": [
+        "identity",
+        "authorization",
+        "credential registry",
+        "audit",
+        "threat review",
+        "privacy",
+        "recovery governance"
+      ],
+      "primaryButtons": [
+        "Review Access",
+        "Check Credentials",
+        "Audit Permissions",
+        "Review Threats",
+        "Verify Privacy",
+        "Open Recovery"
+      ],
+      "secondaryButtons": [
+        "Inspect Audit Trail",
+        "Revoke Session",
+        "Rotate Credential",
+        "Review Provider Scopes",
+        "Create Security Task",
+        "Approve Security Change"
+      ]
+    }
+  ]
+}
