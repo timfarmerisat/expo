@@ -1,0 +1,269 @@
+{
+  "version": "1.0.0",
+  "actions": [
+    {
+      "id": "global-ask-violet",
+      "label": "Ask Violet",
+      "description": "Open the primary command chat.",
+      "departmentId": null,
+      "group": "primary",
+      "actionType": "internal-route",
+      "target": "#chat",
+      "permission": "read",
+      "connectionRequired": null,
+      "confirmation": "none",
+      "success": {
+        "result": "Chat opens with current context.",
+        "nextAction": "Enter or select a command.",
+        "evidenceRequired": false
+      },
+      "unavailable": {
+        "message": "Chat route is unavailable.",
+        "recoveryAction": "Open system diagnostics and preserve the intended command as a task.",
+        "route": "#release-qa"
+      }
+    },
+    {
+      "id": "global-create-task",
+      "label": "Create Task",
+      "description": "Create durable work from the current context.",
+      "departmentId": null,
+      "group": "primary",
+      "actionType": "create-task",
+      "target": "task.create",
+      "permission": "write",
+      "connectionRequired": null,
+      "confirmation": "none",
+      "success": {
+        "result": "Task receipt created.",
+        "nextAction": "Assign or start the task.",
+        "evidenceRequired": true
+      },
+      "unavailable": {
+        "message": "Task storage is unavailable.",
+        "recoveryAction": "Retain a local draft and run storage diagnostics.",
+        "route": "#operations"
+      }
+    },
+    {
+      "id": "global-verify",
+      "label": "Verify",
+      "description": "Run the appropriate evidence/health check for the current object.",
+      "departmentId": null,
+      "group": "verify",
+      "actionType": "verify",
+      "target": "evidence.verify",
+      "permission": "execute",
+      "connectionRequired": null,
+      "confirmation": "important-action",
+      "success": {
+        "result": "Evidence receipt recorded.",
+        "nextAction": "Review result and recovery recommendations.",
+        "evidenceRequired": true
+      },
+      "unavailable": {
+        "message": "Verification cannot run with the current connection/permission state.",
+        "recoveryAction": "Open Connections and resolve the blocking dependency.",
+        "route": "#connections"
+      }
+    },
+    {
+      "id": "global-request-approval",
+      "label": "Request Approval",
+      "description": "Submit the current scoped action for approval.",
+      "departmentId": null,
+      "group": "operate",
+      "actionType": "request-approval",
+      "target": "approval.create",
+      "permission": "write",
+      "connectionRequired": null,
+      "confirmation": "none",
+      "success": {
+        "result": "Approval request created.",
+        "nextAction": "Track the decision in Approvals.",
+        "evidenceRequired": true
+      },
+      "unavailable": {
+        "message": "Approval service is unavailable.",
+        "recoveryAction": "Create an operations task and preserve the requested scope.",
+        "route": "#approvals"
+      }
+    },
+    {
+      "id": "global-next-action",
+      "label": "Next Best Action",
+      "description": "Rank useful next steps using blockers, evidence and objective.",
+      "departmentId": null,
+      "group": "analyze",
+      "actionType": "chat-prompt",
+      "target": "Recommend the next 1-3 actions using current blockers, evidence freshness, approvals and release gates.",
+      "permission": "read",
+      "connectionRequired": null,
+      "confirmation": "none",
+      "success": {
+        "result": "Ranked suggestions shown.",
+        "nextAction": "Select an action to preview scope.",
+        "evidenceRequired": false
+      },
+      "unavailable": {
+        "message": "Current system context is incomplete.",
+        "recoveryAction": "Refresh system status and evidence.",
+        "route": "#overview"
+      }
+    },
+    {
+      "id": "ops-diagnostics",
+      "label": "Run Diagnostics",
+      "description": "Check local/service dependencies without destructive repair.",
+      "departmentId": "operations-management",
+      "group": "primary",
+      "actionType": "diagnose",
+      "target": "diagnostics.readonly",
+      "permission": "execute",
+      "connectionRequired": "local-runtime",
+      "confirmation": "important-action",
+      "success": {
+        "result": "Diagnostic receipt created.",
+        "nextAction": "Review failures and choose recovery.",
+        "evidenceRequired": true
+      },
+      "unavailable": {
+        "message": "Local runtime is not connected.",
+        "recoveryAction": "Run local preflight or pair the Local Bridge.",
+        "route": "#connections"
+      }
+    },
+    {
+      "id": "ops-backup",
+      "label": "Create Backup",
+      "description": "Create a non-destructive verified backup set.",
+      "departmentId": "operations-management",
+      "group": "primary",
+      "actionType": "automation",
+      "target": "backup.create",
+      "permission": "execute",
+      "connectionRequired": "local-runtime",
+      "confirmation": "important-action",
+      "success": {
+        "result": "Backup and checksum receipt created.",
+        "nextAction": "Run separate-destination restore test.",
+        "evidenceRequired": true
+      },
+      "unavailable": {
+        "message": "Backup target or local runtime is unavailable.",
+        "recoveryAction": "Select a safe backup destination and rerun preflight.",
+        "route": "#release-qa"
+      }
+    },
+    {
+      "id": "security-review-access",
+      "label": "Review Access",
+      "description": "Inspect authentication, authorization and active sessions.",
+      "departmentId": "security-privacy",
+      "group": "primary",
+      "actionType": "verify",
+      "target": "security.access.review",
+      "permission": "read",
+      "connectionRequired": null,
+      "confirmation": "none",
+      "success": {
+        "result": "Access review report created.",
+        "nextAction": "Resolve exceptions or approve current state.",
+        "evidenceRequired": true
+      },
+      "unavailable": {
+        "message": "Identity evidence is unavailable.",
+        "recoveryAction": "Reconnect identity provider or run local auth verification.",
+        "route": "#connections"
+      }
+    },
+    {
+      "id": "creative-create-design",
+      "label": "Create Design",
+      "description": "Open a design workflow using an installed design surface when available.",
+      "departmentId": "creative-design",
+      "group": "primary",
+      "actionType": "create-asset",
+      "target": "design.create",
+      "permission": "write",
+      "connectionRequired": "design-provider",
+      "confirmation": "none",
+      "success": {
+        "result": "Design asset/draft created with lineage.",
+        "nextAction": "Review, approve, or send to build.",
+        "evidenceRequired": true
+      },
+      "unavailable": {
+        "message": "No verified design provider is connected.",
+        "recoveryAction": "Use local design mode or connect an installed design provider.",
+        "route": "#connections"
+      }
+    },
+    {
+      "id": "communications-draft-email",
+      "label": "Draft Email",
+      "description": "Prepare correspondence without sending automatically.",
+      "departmentId": "communications-media",
+      "group": "primary",
+      "actionType": "chat-prompt",
+      "target": "Draft an email using the current task and evidence context.",
+      "permission": "read",
+      "connectionRequired": null,
+      "confirmation": "none",
+      "success": {
+        "result": "Reviewable email draft created.",
+        "nextAction": "Approve and send using a connected email provider.",
+        "evidenceRequired": false
+      },
+      "unavailable": {
+        "message": "Context is incomplete.",
+        "recoveryAction": "Select recipients/context or save as a communications task.",
+        "route": "#communications-media"
+      }
+    },
+    {
+      "id": "business-open-crm",
+      "label": "Open CRM",
+      "description": "Open a verified CRM connection or connection setup.",
+      "departmentId": "business-finance",
+      "group": "secondary",
+      "actionType": "connector-action",
+      "target": "crm.open",
+      "permission": "read",
+      "connectionRequired": "crm",
+      "confirmation": "none",
+      "success": {
+        "result": "CRM workspace opens.",
+        "nextAction": "Review accounts, deals or pipeline.",
+        "evidenceRequired": false
+      },
+      "unavailable": {
+        "message": "No CRM is connected.",
+        "recoveryAction": "Connect an approved CRM provider.",
+        "route": "#connections"
+      }
+    },
+    {
+      "id": "marketing-open-analytics",
+      "label": "Open Analytics",
+      "description": "Open governed product/marketing analytics.",
+      "departmentId": "marketing-growth",
+      "group": "secondary",
+      "actionType": "connector-action",
+      "target": "analytics.open",
+      "permission": "read",
+      "connectionRequired": "analytics",
+      "confirmation": "none",
+      "success": {
+        "result": "Analytics workspace opens.",
+        "nextAction": "Select a metric, funnel or experiment.",
+        "evidenceRequired": false
+      },
+      "unavailable": {
+        "message": "No analytics provider is connected.",
+        "recoveryAction": "Use installed Data tools or connect an approved analytics provider.",
+        "route": "#connections"
+      }
+    }
+  ]
+}
