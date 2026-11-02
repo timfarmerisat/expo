@@ -1,0 +1,104 @@
+{
+  "version": "1.0.0",
+  "rule": "A channel can be displayed as selectable before connection, but must show its exact state and a Connect/Reconnect/Why unavailable action instead of failing silently.",
+  "channels": [
+    {
+      "id": "internal-chat",
+      "name": "Violet / We-Talk Chat",
+      "state": "Installed",
+      "uses": [
+        "conversation",
+        "commands",
+        "files",
+        "approvals"
+      ],
+      "fallback": "Create task or preserve draft locally"
+    },
+    {
+      "id": "live-room",
+      "name": "Live Room",
+      "state": "Installed",
+      "uses": [
+        "realtime collaboration",
+        "voice-assisted chat"
+      ],
+      "fallback": "Standard chat with retry receipt"
+    },
+    {
+      "id": "voice",
+      "name": "Voice",
+      "state": "Installed",
+      "uses": [
+        "speech input",
+        "spoken response"
+      ],
+      "fallback": "Text chat with microphone guidance"
+    },
+    {
+      "id": "email",
+      "name": "Email",
+      "state": "Connection Required",
+      "uses": [
+        "outbound correspondence",
+        "follow-up",
+        "approvals"
+      ],
+      "fallback": "Save email draft"
+    },
+    {
+      "id": "calendar",
+      "name": "Calendar",
+      "state": "Connection Required",
+      "uses": [
+        "scheduling",
+        "milestones",
+        "meetings"
+      ],
+      "fallback": "Save scheduling task"
+    },
+    {
+      "id": "slack",
+      "name": "Slack",
+      "state": "Available",
+      "uses": [
+        "team channels",
+        "status updates",
+        "collaboration"
+      ],
+      "fallback": "Internal chat or email draft"
+    },
+    {
+      "id": "notifications",
+      "name": "Notifications",
+      "state": "Permission Required",
+      "uses": [
+        "approvals",
+        "alerts",
+        "reminders"
+      ],
+      "fallback": "In-app notification center"
+    },
+    {
+      "id": "files",
+      "name": "File Handoff",
+      "state": "Installed",
+      "uses": [
+        "uploads",
+        "exports",
+        "review packets"
+      ],
+      "fallback": "Local workspace retention"
+    },
+    {
+      "id": "local-bridge",
+      "name": "Local Bridge",
+      "state": "Connection Required",
+      "uses": [
+        "device health",
+        "approved terminal",
+        "file sync"
+      ],
+      "fallback": "Queue action pending device connection"
+    }
+  ]
+}
