@@ -1,0 +1,129 @@
+{
+  "version": "1.0.0",
+  "states": [
+    {
+      "id": "listening",
+      "label": "Listening",
+      "plain": "I received what you said or typed.",
+      "allowed": [
+        "capture-input",
+        "attach-files",
+        "cancel"
+      ]
+    },
+    {
+      "id": "understanding",
+      "label": "Understanding",
+      "plain": "I am identifying your goal, subject, and important details.",
+      "allowed": [
+        "clarify-context",
+        "show-context",
+        "cancel"
+      ]
+    },
+    {
+      "id": "clarifying",
+      "label": "Clarifying",
+      "plain": "I need one missing fact or permission before the next step.",
+      "allowed": [
+        "answer-question",
+        "provide-permission",
+        "change-scope",
+        "cancel"
+      ]
+    },
+    {
+      "id": "planning",
+      "label": "Planning",
+      "plain": "I am building the safest useful sequence of actions.",
+      "allowed": [
+        "review-plan",
+        "change-priority",
+        "cancel"
+      ]
+    },
+    {
+      "id": "awaiting-approval",
+      "label": "Awaiting Approval",
+      "plain": "A meaningful action needs your approval before it runs.",
+      "allowed": [
+        "approve",
+        "deny",
+        "edit-scope",
+        "show-evidence"
+      ]
+    },
+    {
+      "id": "executing",
+      "label": "Executing",
+      "plain": "An approved action is running.",
+      "allowed": [
+        "view-progress",
+        "stop-if-safe"
+      ]
+    },
+    {
+      "id": "verifying",
+      "label": "Verifying",
+      "plain": "I am checking the result instead of assuming it worked.",
+      "allowed": [
+        "view-tests",
+        "view-health",
+        "view-evidence"
+      ]
+    },
+    {
+      "id": "reporting",
+      "label": "Reporting",
+      "plain": "I am summarizing what changed, what is still blocked, and what matters.",
+      "allowed": [
+        "open-result",
+        "open-evidence",
+        "create-follow-up"
+      ]
+    },
+    {
+      "id": "ready",
+      "label": "Ready",
+      "plain": "The current step is complete and the system is ready for the next command.",
+      "allowed": [
+        "next-best-action",
+        "new-command",
+        "open-dashboard"
+      ]
+    }
+  ],
+  "insightCards": [
+    {
+      "id": "what-changed",
+      "label": "What changed?",
+      "plain": "Shows the most important changes since the last verified check."
+    },
+    {
+      "id": "why-it-matters",
+      "label": "Why it matters",
+      "plain": "Explains the business, customer, security, or release impact in basic words."
+    },
+    {
+      "id": "risk",
+      "label": "Risk",
+      "plain": "Shows what could fail, become stale, lose money, lose data, or create customer problems."
+    },
+    {
+      "id": "opportunity",
+      "label": "Opportunity",
+      "plain": "Shows a practical way to improve quality, revenue, reach, conversion, or reliability."
+    },
+    {
+      "id": "next-action",
+      "label": "Next best action",
+      "plain": "Shows the most useful next step and why it is ranked first."
+    },
+    {
+      "id": "evidence",
+      "label": "Evidence",
+      "plain": "Shows where the status or recommendation came from and when it was checked."
+    }
+  ],
+  "rule": "Operational state must come from measured system evidence, not from conversational memory or static dashboard text."
+}
