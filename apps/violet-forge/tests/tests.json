@@ -1,0 +1,87 @@
+[
+  {
+    "name": "Authenticate, inspect readiness, and retain private workspace data",
+    "sanity": true,
+    "viewport": "desktop",
+    "covers": [
+      "sign-in and sign-out",
+      "GET /api/readiness",
+      "GET /api/bootstrap",
+      "private persistence"
+    ],
+    "description": "Verifies the critical owner flow and authenticated readiness.",
+    "steps": [
+      "Sign in and refresh",
+      "Create a project and task",
+      "Refresh, sign out, and attempt private refresh"
+    ],
+    "expected": "Private records persist and signed-out access is denied."
+  },
+  {
+    "name": "Reject unsafe research destinations",
+    "viewport": "desktop",
+    "covers": [
+      "POST /api/research",
+      "private-network URL guard",
+      "source-bound analysis"
+    ],
+    "description": "Verifies local and private destinations are blocked.",
+    "steps": [
+      "Submit http://127.0.0.1",
+      "Confirm rejection",
+      "Submit https://example.com"
+    ],
+    "expected": "Unsafe URL is rejected and public source analysis can be saved."
+  },
+  {
+    "name": "Enforce private file controls",
+    "viewport": "desktop",
+    "covers": [
+      "POST /api/files",
+      "MIME allowlist",
+      "decoded-size limit",
+      "quota",
+      "DELETE /api/files"
+    ],
+    "description": "Verifies allowed files persist while unsafe files are blocked.",
+    "steps": [
+      "Upload a small PDF or text file",
+      "Refresh and open it",
+      "Try HTML or SVG, then delete the allowed file"
+    ],
+    "expected": "Allowed file persists, unsafe file is rejected, and deletion remains after refresh."
+  },
+  {
+    "name": "Show truthful provider gates",
+    "viewport": "desktop",
+    "covers": [
+      "provider truth boundary",
+      "owner validation",
+      "AppDeploy GitHub Drive Gmail Calendar states"
+    ],
+    "description": "Verifies provider links are not misrepresented as live connections.",
+    "steps": [
+      "Open Link System",
+      "Review provider states",
+      "Confirm setup-required services remain gated"
+    ],
+    "expected": "Only runtime-verified AppDeploy is Connected; GitHub and Google services show bounded evidence."
+  },
+  {
+    "name": "Keep mobile controls usable",
+    "viewport": "mobile",
+    "covers": [
+      "responsive navigation",
+      "preview guardrail",
+      "health labels",
+      "task workflow"
+    ],
+    "description": "Verifies mobile operation without unsupported readiness claims.",
+    "steps": [
+      "Open preview on mobile",
+      "Review deployment pipeline",
+      "Attempt a private action"
+    ],
+    "expected": "Controls are usable and private actions require sign-in."
+  }
+]
