@@ -1,0 +1,41 @@
+name: Violet Unified Release Hardening
+
+on:
+  pull_request:
+    paths:
+      - 'violet-release/**'
+      - '.github/workflows/violet-release-hardening.yml'
+  push:
+    branches:
+      - 'codex/violet-unified-release-hardening-2026-11-02'
+    paths:
+      - 'violet-release/**'
+      - '.github/workflows/violet-release-hardening.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-release-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate shell syntax
+        run: |
+          bash -n violet-release/scripts/preflight.sh
+          bash -n violet-release/scripts/backup.sh
+
+      - name: Validate Python syntax
+        run: |
+          python -m py_compile violet-release/integrations/microsoft_graph_driver.py
+          python -m py_compile violet-release/scripts/validate_specs.py
+
+      - name: Validate architecture contracts
+        run: python violet-release/scripts/validate_specs.py

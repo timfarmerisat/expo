@@ -1,0 +1,283 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://somethingdifferent.lol/schemas/violet-system-registry.schema.json",
+  "title": "Violet System Registry",
+  "type": "object",
+  "required": [
+    "version",
+    "nodes",
+    "relationships"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "category",
+          "provider",
+          "state",
+          "confidence",
+          "evidence"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "enum": [
+              "repository",
+              "deployment",
+              "api",
+              "plugin",
+              "device",
+              "database",
+              "storage",
+              "communications",
+              "local-service",
+              "knowledge",
+              "automation"
+            ]
+          },
+          "provider": {
+            "type": "string"
+          },
+          "departmentIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "state": {
+            "enum": [
+              "Disconnected",
+              "Permission Required",
+              "Connecting",
+              "Connected",
+              "Limited",
+              "Syncing",
+              "Error"
+            ]
+          },
+          "confidence": {
+            "enum": [
+              "Verified",
+              "Supported",
+              "Stale",
+              "Conflicting",
+              "Unknown"
+            ]
+          },
+          "runtimeAuthorized": {
+            "type": "boolean"
+          },
+          "scopesVerified": {
+            "type": "boolean"
+          },
+          "credentialState": {
+            "enum": [
+              "configured",
+              "missing",
+              "expired",
+              "rotating",
+              "revoked",
+              "not-required"
+            ]
+          },
+          "accountAlias": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "repository": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "branch": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "commitSha": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pullRequest": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "appId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deploymentVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "localEndpoint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "healthEndpoint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lastCheckedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "lastSuccessfulAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "lastFailureAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "failureReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recoveryAction": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "kind",
+                "source",
+                "observedAt",
+                "result"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "result": {
+                  "enum": [
+                    "success",
+                    "failure",
+                    "info"
+                  ]
+                },
+                "detail": {
+                  "type": "string"
+                },
+                "receiptId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "from",
+          "to",
+          "kind"
+        ],
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "depends-on",
+              "controls",
+              "reads",
+              "writes",
+              "deploys",
+              "backs-up",
+              "authenticates",
+              "syncs",
+              "indexes",
+              "notifies"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "evidenceRequired": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

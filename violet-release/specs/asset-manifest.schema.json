@@ -1,0 +1,302 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://somethingdifferent.lol/schemas/violet-asset-manifest.schema.json",
+  "title": "Violet Asset Manifest",
+  "type": "object",
+  "required": [
+    "version",
+    "assets"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "source",
+          "checksum",
+          "lifecycle",
+          "approval"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "image",
+              "video",
+              "audio",
+              "document",
+              "dataset",
+              "model",
+              "code",
+              "archive",
+              "icon",
+              "chart"
+            ]
+          },
+          "source": {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "uploaded",
+                  "generated",
+                  "repository",
+                  "drive",
+                  "dropbox",
+                  "box",
+                  "sharepoint",
+                  "onedrive",
+                  "app-storage",
+                  "local"
+                ]
+              },
+              "uri": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sourceAssetId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "generator": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "promptReceiptId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "checksum": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "mimeType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "width": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "height": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "durationSeconds": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "colorSpace": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "accessibility": {
+            "type": "object",
+            "properties": {
+              "alt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "transcript": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "captions": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "derivatives": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "purpose",
+                "uri"
+              ],
+              "properties": {
+                "purpose": {
+                  "enum": [
+                    "thumbnail",
+                    "preview",
+                    "web",
+                    "mobile",
+                    "retina",
+                    "4k",
+                    "print",
+                    "poster",
+                    "waveform"
+                  ]
+                },
+                "uri": {
+                  "type": "string"
+                },
+                "width": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "height": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "checksum": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "departmentIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "taskIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "releaseIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidenceIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "license": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lifecycle": {
+            "enum": [
+              "draft",
+              "active",
+              "archived",
+              "superseded",
+              "quarantined"
+            ]
+          },
+          "approval": {
+            "type": "object",
+            "required": [
+              "state"
+            ],
+            "properties": {
+              "state": {
+                "enum": [
+                  "not-required",
+                  "pending",
+                  "approved",
+                  "rejected"
+                ]
+              },
+              "actor": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "decidedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "scope": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "createdAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}
