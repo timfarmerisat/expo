@@ -1,0 +1,122 @@
+{
+  "version": "1.0.0",
+  "truthBoundary": "These destinations are official publishing/management entry points. Account enrollment, agreements, tax/banking, signing, package readiness, testing and review status remain account-specific and must be verified at runtime.",
+  "stores": [
+    {
+      "id": "apple-app-store",
+      "name": "Apple App Store",
+      "consoleName": "App Store Connect",
+      "managementUrl": "https://appstoreconnect.apple.com/",
+      "helpUrl": "https://developer.apple.com/help/app-store-connect/",
+      "packageTypes": [
+        "iOS/iPadOS app build",
+        "macOS app build"
+      ],
+      "gates": [
+        "Apple Developer Program membership",
+        "App record",
+        "bundle identifier",
+        "signing/provisioning",
+        "privacy information",
+        "screenshots/metadata",
+        "build upload",
+        "review submission",
+        "agreements/tax/banking when selling"
+      ],
+      "statuses": [
+        "Not Enrolled",
+        "Setup Required",
+        "Build Required",
+        "Metadata Required",
+        "Ready for TestFlight",
+        "Ready for Review",
+        "In Review",
+        "Approved",
+        "Available",
+        "Rejected",
+        "Update Required"
+      ]
+    },
+    {
+      "id": "google-play",
+      "name": "Google Play",
+      "consoleName": "Google Play Console",
+      "managementUrl": "https://play.google.com/console/",
+      "helpUrl": "https://support.google.com/googleplay/android-developer/",
+      "packageTypes": [
+        "Android App Bundle (AAB)"
+      ],
+      "gates": [
+        "Play developer account",
+        "app record/package name",
+        "Play App Signing",
+        "store listing",
+        "content declarations",
+        "testing requirements when applicable",
+        "release track",
+        "review"
+      ],
+      "statuses": [
+        "Not Enrolled",
+        "Setup Required",
+        "Draft",
+        "Internal Testing",
+        "Closed Testing",
+        "Open Testing",
+        "Ready for Review",
+        "In Review",
+        "Production",
+        "Rejected",
+        "Update Required"
+      ]
+    },
+    {
+      "id": "microsoft-store",
+      "name": "Microsoft Store",
+      "consoleName": "Microsoft Partner Center",
+      "managementUrl": "https://partner.microsoft.com/dashboard",
+      "onboardingUrl": "https://storedeveloper.microsoft.com/",
+      "helpUrl": "https://learn.microsoft.com/windows/apps/publish/",
+      "packageTypes": [
+        "MSIX/MSIXBundle",
+        "APPX/AppxBundle",
+        "PWA package",
+        "eligible MSI/EXE submission"
+      ],
+      "gates": [
+        "Developer account",
+        "identity verification",
+        "app reservation",
+        "package/signing",
+        "store listing",
+        "pricing/availability",
+        "age rating/properties",
+        "certification"
+      ],
+      "statuses": [
+        "Not Enrolled",
+        "Verification Required",
+        "Setup Required",
+        "Package Required",
+        "Submission Draft",
+        "Certification",
+        "In the Store",
+        "Rejected",
+        "Update Required"
+      ]
+    }
+  ],
+  "sharedActions": [
+    "Open Console",
+    "Check Enrollment",
+    "Check Package",
+    "Prepare Listing",
+    "Validate Screenshots",
+    "Check Privacy/Content",
+    "Run Preflight",
+    "Submit for Review",
+    "Check Review Status",
+    "Publish Update",
+    "Open Revenue/Reports"
+  ]
+}
